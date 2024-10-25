@@ -1,5 +1,5 @@
 # Julian Rockey's Games
-Archive of Acorn Archemedies RISC OS Games by Julian Rockey.
+Archive of Acorn Archimedes RISC OS Games by Julian Rockey.
 
 # Background
 My father, Martin Hansen, was a teacher at Shrewsbury School for many decades, and has always been an avid supporter of Acorn Computers. Julian Rockey was a former student at the school, and somewhere along the way, my father ended up with a acorn formatted floppy disk that contained games coded or enhanced by Julian Rockey in the late 1980s. I played many of these games on Archimedes machines growing up all the time, forming part of my childhood memories, but to this day I have no idea if I had the only copy or if they were more widespread.
