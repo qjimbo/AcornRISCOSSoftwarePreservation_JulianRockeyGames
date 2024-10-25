@@ -1,0 +1,649 @@
+REM >$.Games.Battletanx
+REM Battletanx: Archimedes BBC BASIC V version by Julian Rockey
+path$="$.Games.Data.BTanxMazes":screen_file$=path$+".InitScreen"
+mazlen=1006
+MODE 9:OFF:*Pointer
+*FX229,1
+PROCpalette
+PROCinit
+PROCassemble
+PROCsound_init
+PROCdefchars
+PROCinitmaze
+FOR I%=1 TO 10
+  PROCstoremaze(I%)
+NEXT
+PROCgetscreens
+REPEAT
+isc%=FNcaps(RIGHT$(screen_file$,11))=".INITSCREEN" OR FNcaps(screen_file$)="INITSCREEN"
+opt%=FNmenu : exit=FALSE
+ON opt% PROCbattletanx,PROCselmaze,PROCdesign,PROCgetmazes ELSE exit=TRUE
+UNTIL exit
+VOICES 1:VOICE 1,"WaveSynth-Beep"
+MODE 12:*FX229,0
+*Exit
+END
+
+DEF PROCinit
+LOCAL I%
+DIM mazedata mazlen*10
+DIM maze mazlen
+DIM machine_code 512
+DIM x%(2),y%(2),d%(2),mx%(2),my%(2),mt%(2),bx%(2),by%(2),bd%(2),col%(2)
+DIM left%(2),right%(2),up%(2),down%(2),fire%(2),putmine%(2)
+DIM score%(2),dead%(2)
+DIM dtabx%(3),dtaby%(3)
+DIM object$(3)
+FOR I%=0 TO 3:READ dtabx%(I%),dtaby%(I%):NEXT
+FOR I%=1 TO 2
+  READ left%(I%),right%(I%),up%(I%),down%(I%),fire%(I%),putmine%(I%)
+NEXT
+screen%=1:edscrn%=1:redraw%=TRUE
+FOR I%=0 TO 3:READ object$(I%):NEXT
+ENDPROC
+
+DATA 1,0, 0,1, -1,0, 0,-1
+DATA -98,-67,-17,-66,-97,-68
+DATA -103,-104,-80,-105,-74,-102
+DATA Blank,Wall,Fuzz,Mine
+
+DEF PROCsound_init
+VOICES 5
+VOICE 1,"Percussion-Medium"
+VOICE 2,"Percussion-Medium"
+VOICE 3,"Percussion-Noise"
+VOICE 4,"Percussion-Noise"
+VOICE 5,"StringLib-Soft"
+ENDPROC
+
+DEF PROCbattletanx
+LOCAL menu : menu=FALSE
+MOUSE X%,Y%,Z%:Y%=(1023-Y%)DIV32:IF Y%<26 THEN MOUSE TO 640,100
+REPEAT
+CLS
+PROCcopymaze(screen%)
+PROCsetvars
+PROCsetscreen
+REPEAT
+PROCmovebullets
+PROCmovebullets
+PROCkeys
+PROCmines
+UNTIL dead%(1)=target% OR dead%(2)=target% OR menu
+IF NOT menu THEN PROCgameover
+UNTIL menu
+ENDPROC
+
+DEF PROCsetvars
+score%()=0:dead%()=0
+d%()=0:mt%()=0:bd%()=-1
+x%(1)=?maze:y%(1)=maze?1:x%(2)=maze?2:y%(2)=maze?3
+col%(1)=maze?4:col%(2)=maze?5
+target%=10
+ENDPROC
+
+DEF PROCcopymaze(scr%)
+LOCAL I%,mazefrom%,A%,B%,C%
+mazefrom%=mazedata+mazlen*(scr%-1)
+A%=mazlen:B%=mazefrom%:C%=maze:CALL copy_memory
+ENDPROC
+FOR I%=0 TO mazlen-1:I%?maze=I%?mazefrom%:NEXT
+ENDPROC
+
+DEF PROCstoremaze(scr%)
+LOCAL I%,mazefrom%,A%,B%,C%
+mazefrom%=mazedata+mazlen*(scr%-1)
+A%=mazlen:B%=maze:C%=mazefrom%:CALL copy_memory
+ENDPROC
+FOR I%=0 TO mazlen-1:I%?mazefrom%=I%?maze:NEXT
+ENDPROC
+
+DEF PROCpr(C%)
+COLOUR (C% DIV 16) AND 15
+VDU 128 OR (C% AND 15)
+ENDPROC
+
+DEF PROCdrawmaze
+LOCAL X%,Y%,addr%,A%
+VDU 31,0,1
+addr%=maze+mazlen-1000
+A%=addr%:CALL draw_maze:ENDPROC
+FOR Y%=1 TO 25
+FOR X%=0 TO 39
+PROCpr(?addr%)
+addr%+=1
+NEXT
+NEXT
+ENDPROC
+
+DEF PROCassemble
+LOCAL I%
+FOR I%=0 TO 1:P%=machine_code:[OPT I%*2
+; R0 is address of data to be printed
+.draw_maze
+          MOV R3,R0
+          MOV R4,#&FF         ; R4 is 'old colour'
+          MOV R1,#&300        ; R1 is counter
+          ORR R1,R1,#&E8
+          SWI &100+31         ; Move cursor to start
+          SWI &100+0
+          SWI &100+1
+.drm_lp   LDRB R2,[R3]        ; Get byte
+          MOV R0,R2,LSR #4    ; Change colour
+          CMP R0,R4
+          MOVNE R4,R0
+          SWINE &100+17
+          SWINE "OS_WriteC"
+          MOV R0,R2           ; Print char
+          AND R0,R0,#&F
+          ORR R0,R0,#128
+          SWI "OS_WriteC"
+          ADD R3,R3,#1        ; Loop back
+          SUBS R1,R1,#1
+          BNE drm_lp
+          MOV PC,R14
+
+; R0 is length of memory to copy
+; R1 is source, R2 is destination address
+.copy_memory
+          LDRB R3,[R1]
+          STRB R3,[R2]
+          ADD R1,R1,#1
+          ADD R2,R2,#1
+          SUBS R0,R0,#1
+          BNE copy_memory
+          MOV PC,R14
+]:NEXT
+ENDPROC
+
+DEF PROCsetscreen
+CLS
+PROCdrawmaze
+PROCprintscore
+PROCprtanx
+ENDPROC
+
+REM  8        Light Grey
+REM  9        Dark Grey
+REM  10       Light Brown
+REM  11       Dark Brown
+REM  12       Light Red
+REM  13       Orange
+REM  14       Light Green
+REM  15       Dark Green
+
+DEF PROCpalette
+COLOUR 8,200,200,200
+COLOUR 9,100,100,100
+COLOUR 10,200,100,0
+COLOUR 11,120,50,0
+COLOUR 12,200,100,100
+COLOUR 13,255,160,0
+COLOUR 14,100,255,100
+COLOUR 15,0,150,50
+VDU 19,0,24,100,100,0
+ENDPROC
+
+DEF PROCprintscore
+COLOUR 14
+PRINTTAB(0,0)"Score 1:";:COLOUR 10:PRINT ;score%(1);:COLOUR 14:PRINT"/";
+COLOUR10:PRINT;dead%(2);:COLOUR14
+PRINTTAB(20,0)"Score 2:";:COLOUR 10:PRINT ;score%(2);:COLOUR 14:PRINT"/";
+COLOUR10:PRINT;dead%(1);
+ENDPROC
+
+DEF PROCinitmaze
+LOCAL X%
+?maze=1:maze?1=2:maze?2=38:maze?3=2
+maze?4=6:maze?5=5
+FOR I%=mazlen-1000 TO mazlen:I%?maze=0:NEXT
+FOR X%=0 TO 39:PROCcch(X%,1,1,3):PROCcch(X%,25,1,3):NEXT
+FOR X%=1 TO 25:PROCcch(0,X%,1,3):PROCcch(39,X%,1,3):NEXT
+ENDPROC
+
+DEF PROCdefchars
+VDU 23,128|
+VDU 23,129,255,255,195,195,195,195,255,255
+VDU 23,130,204,0,51,0,204,0,51,0
+VDU 23,131,0,66,60,60,60,60,66,0
+VDU 23,240,0,252,252,255,255,252,252,0
+VDU 23,241,126,126,126,126,126,126,24,24
+VDU 23,242,0,63,63,255,255,63,63,0
+VDU 23,243,24,24,126,126,126,126,126,126
+ENDPROC
+
+DEF PROCprtanx
+LOCAL I%
+FOR I%=1 TO 2
+COLOUR col%(I%)
+VDU 31,x%(I%),y%(I%),d%(I%)+240
+PROCch(x%(I%),y%(I%),13+I%)
+NEXT
+ENDPROC
+
+DEF PROCkeys
+LOCAL I%
+IF INKEY(-113) THEN IF FNconfirm THEN menu=TRUE
+FOR I%=1 TO 2
+  IF INKEY(left%(I%)) THEN PROCmv(I%,2)
+  IF INKEY(right%(I%)) THEN PROCmv(I%,0)
+  IF INKEY(up%(I%)) THEN PROCmv(I%,3)
+  IF INKEY(down%(I%)) THEN PROCmv(I%,1)
+  IF INKEY(fire%(I%)) THEN PROCfire(I%)
+  IF INKEY(putmine%(I%)) THEN PROCputmine(I%)
+NEXT
+ENDPROC
+
+DEF FNch(X%,Y%)=?(maze+6+X%+Y%*40-40) AND 15
+
+DEF PROCch(X%,Y%,C%):?(maze+6+X%+Y%*40-40)=C%:ENDPROC
+
+DEF PROCcch(X%,Y%,C%,D%):?(maze+6+X%+Y%*40-40)=C% OR (D%*16):ENDPROC
+
+DEF PROCmv(I%,D%)
+LOCAL X%,Y%,DX%,DY%,C%
+X%=x%(I%):Y%=y%(I%)
+DX%=dtabx%(D%):DY%=dtaby%(D%)
+C%=FNch(X%+DX%,Y%+DY%)
+CASE C% OF
+  WHEN 0: x%(I%)+=DX%:y%(I%)+=DY%
+  WHEN 3: PROCkillplayer(I%)
+ENDCASE
+IF C%<>3 THEN
+  d%(I%)=D%
+  VDU 31,X%,Y%,32,31,x%(I%),y%(I%),17,col%(I%),D%+240
+  PROCch(X%,Y%,0):PROCch(x%(I%),y%(I%),13+I%)
+ENDIF
+ENDPROC
+
+DEF PROCmines
+LOCAL I%
+FOR I%=1 TO 2
+  IF mt%(I%)>0 THEN
+    mt%(I%)-=1
+    IF mt%(I%)=0 THEN
+      VDU 17,128,31,mx%(I%),my%(I%),32
+      PROCch(mx%(I%),my%(I%),0)
+      PROCstereo(5,mx%(I%))
+      SOUND 5,-15,0,10
+    ENDIF
+  ENDIF
+NEXT
+ENDPROC
+
+DEF PROCputmine(I%)
+LOCAL DX%,DY%
+IF mt%(I%)=0 THEN
+  DX%=dtabx%(d%(I%)):DY%=dtaby%(d%(I%))
+  mx%(I%)=x%(I%)-DX%:my%(I%)=y%(I%)-DY%
+  IF FNch(mx%(I%),my%(I%))=0 THEN
+    mt%(I%)=250
+    VDU 17,col%(I%),17,128,31,mx%(I%),my%(I%),131
+    PROCcch(mx%(I%),my%(I%),3,col%(I%))
+  ENDIF
+ENDIF
+ENDPROC
+
+DEF PROCmovebullets
+LOCAL I%,X%,Y%,DX%,DY%,C%
+WAIT
+FOR I%=1 TO 2
+IF bd%(I%)>-1 THEN
+  X%=bx%(I%):Y%=by%(I%)
+  DX%=dtabx%(bd%(I%)):DY%=dtaby%(bd%(I%))
+  C%=FNch(X%+DX%,Y%+DY%)
+  IF C%<>1 AND C%<>3 THEN
+    bx%(I%)+=DX%:by%(I%)+=DY%
+    VDU31,X%,Y%,32,31,bx%(I%),by%(I%),17,col%(I%),46
+    PROCch(X%,Y%,0):PROCch(bx%(I%),by%(I%),13)
+    IF C%=2 OR C%=14 OR C%=15 VDU31,bx%(I%),by%(I%),32:PROCch(bx%(I%),by%(I%),0):bd%(I%)=-1
+    IF C%=14 OR C%=15 THEN PROCkillplayer(C%-13)
+    IF C%=2 THEN score%(I%)+=1:PROCprintscore
+  ELSE
+    VDU 31,X%,Y%,32:PROCch(X%,Y%,0):bd%(I%)=-1
+  ENDIF
+ENDIF
+NEXT
+ENDPROC
+
+DEF PROCfire(I%)
+LOCAL X%,Y%,C%,DX%,DY%
+IF bd%(I%)=-1 THEN
+  DX%=dtabx%(d%(I%)):DY%=dtaby%(d%(I%))
+  X%=x%(I%)+DX%:Y%=y%(I%)+DY%
+  C%=FNch(X%,Y%)
+  IF C%<>1 AND C%<>3 THEN
+    PROCstereo(I%,x%(I%)):SOUND I%,-10,0,1
+    CASE C% OF
+      WHEN 14,15: PROCkillplayer(C%-13)
+      WHEN 2: VDU 31,X%,Y%,32:PROCch(X%,Y%,0):score%(I%)+=1:PROCprintscore
+      OTHERWISE
+        bd%(I%)=d%(I%):bx%(I%)=X%:by%(I%)=Y%:PROCch(X%,Y%,13)
+        VDU 31,X%,Y%,17,col%(I%),46
+    ENDCASE
+  ENDIF
+ENDIF
+ENDPROC
+
+DEF PROCstereo(chan%,X%)
+LOCAL stereo%:stereo%=6.35*X%-127
+IF stereo%<-127 THEN stereo%=-127
+IF stereo%>127 THEN stereo%=127
+STEREO chan%,stereo%:ENDPROC
+
+DEF PROCdelay(R%):LOCAL T%
+T%=TIME:WHILE TIME<T%+R% ENDWHILE
+ENDPROC
+
+DEF PROCkillplayer(I%)
+COLOUR 1
+PROCstereo(2+I%,x%(I%))
+SOUND 2+I%,-15,0,20
+VDU 31,x%(I%),y%(I%),42
+score%(3-I%)+=10:dead%(3-I%)+=1:PROCprintscore
+PROCch(x%(I%),y%(I%),0):PROCdelay(10)
+VDU 31,x%(I%),y%(I%),32
+x%(I%)=maze?(I%*2-2):y%(I%)=maze?(I%*2-1):d%(I%)=0:PROCprtanx
+ENDPROC
+
+DEF PROCcen(A$,Y%):PRINTTAB(20-LENA$DIV2,Y%)A$;:ENDPROC
+
+DEF PROCdesign_update
+COLOUR8:PRINTTAB(0,26)"Maze: ";:COLOUR 7:PRINT;screen%;" "
+COLOUR8:PRINTTAB(20,26)"Using: ";:COLOUR 7:PRINT object$(ob%)"   "
+COLOUR col%+128:VDU31,15,26,32,32,17,128
+IF isc% THEN COLOUR 9 ELSE COLOUR 1
+PRINTTAB(0,30)"Save   ";:COLOUR 1
+IF mirror% THEN COLOUR 128+8 ELSE COLOUR 128+9
+PRINT"Mirror";:COLOUR128:PRINT" Clear  Fuzzin Exit"
+ENDPROC
+
+DEF PROCdesign
+LOCAL X%,Y%,Z%,exit,screen%: exit=FALSE: screen%=edscrn%
+CLS
+COLOUR 12:COLOUR 128
+ob%=1:col%=3:mirror%=FALSE
+PROCcen("Maze Designer",0)
+PROCcopymaze(screen%)
+PROCdrawmaze
+PROCdesign_update
+COLOUR13:PRINTTAB(0,28)"Blank  Wall   Fuzz   Mine"
+VDU 31,0,29:FOR I%=0 TO 15:VDU17,128 OR I%,32,32:NEXT:COLOUR 128
+REPEAT
+  REPEAT MOUSE X%,Y%,Z%:UNTIL Z%<>0
+  X%=X% DIV 32:Y%=(1023-Y%)DIV32
+  IF Y%=26 AND X%<10 THEN
+    PROCstoremaze(screen%)
+    IF (Z% AND 4)<>0 THEN screen%+=1:IF screen%=11 THEN screen%=1
+    IF (Z% AND 1)<>0 THEN screen%-=1:IF screen%=0 THEN screen%=10
+    IF (Z% AND 2)<>0 THEN
+      IF screen%=1 THEN screen%=10 ELSE screen%=1
+    ENDIF
+    PROCdesign_update
+    PROCcopymaze(screen%)
+    PROCdrawmaze
+  ENDIF
+  IF Y%=28 THEN
+    ob%=X% DIV 7:IF ob%>3 THEN ob%=3
+    PROCdesign_update
+  ENDIF
+  IF Y%=29 THEN
+    col%=X% DIV 2:IF col%>15 THEN col%=15
+    PROCdesign_update
+  ENDIF
+  IF Y%=30 THEN
+    sel%=X% DIV 7+1
+    CASE sel% OF
+      WHEN 1: IF NOT isc% THEN
+                IF FNconfirm THEN
+                  PROCstoremaze(screen%)
+                  PROCsave_screens(screen_file$)
+                ENDIF
+              ENDIF
+      WHEN 2: mirror%=NOT mirror%:PROCdesign_update:PROCrel
+      WHEN 3: IF FNconfirm THEN PROCinitmaze:PROCdrawmaze
+      WHEN 4: IF FNconfirm THEN PROCfuzzin:PROCdrawmaze
+      WHEN 5: exit=TRUE
+    ENDCASE
+  ENDIF
+  IF Y%>1 AND Y%<25 AND X%>0 AND X%<39 OR ((X%=0 OR X%=39 OR Y%=1 OR Y%=25) AND ob%=1 AND (Z%AND1)=0) THEN
+    IF Y%>0 AND Y%<26 THEN
+      IF (Z% AND 4)<>0 THEN
+        PROCcch(X%,Y%,ob%,col%):VDU31,X%,Y%:PROCpr(ob%+col%*16)
+        IF mirror% THEN
+          PROCcch(39-X%,Y%,ob%,col%):VDU31,39-X%,Y%:PROCpr(ob%+col%*16)
+        ENDIF
+      ENDIF
+      IF (Z% AND 1)<>0 THEN
+        PROCcch(X%,Y%,0,col%):VDU31,X%,Y%:PROCpr(FNch(X%,Y%))
+        IF mirror% THEN
+          PROCcch(39-X%,Y%,0,col%):VDU31,39-X%,Y%:PROCpr(FNch(X%,Y%))
+        ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+UNTIL exit
+PROCstoremaze(screen%):edscrn%=screen%
+COLOUR 128:COLOUR 7
+ENDPROC
+
+DEF PROCsave_screens(file$)
+OSCLI"Save "+file$+" "+STR$~mazedata+"+"+STR$~(mazlen*10)
+OSCLI"SetType "+file$+" &7FE"
+OSCLI"Stamp "+file$
+ENDPROC
+
+DEF PROCgetscreens
+IF FNlook(screen_file$) THEN
+  OSCLI"Load "+screen_file$+" "+STR$~mazedata
+ELSE
+  PROCsave_screens(screen_file$)
+ENDIF
+ENDPROC
+
+DEF FNcaps(A$):LOCAL B$,Z%,I%
+FOR I%=1 TO LENA$:Z%=ASCMID$(A$,I%,1)
+  IF Z%>96 AND Z%<123 THEN Z%=Z% AND &DF
+B$+=CHR$Z%:NEXT
+=B$
+
+DEF FNlook(F$):LOCAL F%
+F%=OPENINF$:IF F%<>0 THEN CLOSE#F%
+=F%<>0
+
+DEF PROCcenbox(C$,Y%)
+PROCbox(20-LENC$DIV2-3,Y%-1,20-LENC$DIV2+LENC$,Y%+1,C$)
+ENDPROC
+
+DEF PROCbox(X1%,Y1%,X2%,Y2%,C$)
+IF X1%>X2% THEN SWAP X1%,X2%
+IF Y1%>Y2% THEN SWAP Y1%,Y2%
+VDU 28,X1%,Y2%,X2%,Y1%,12,26
+PRINTTAB((X2%-X1%-LENC$)DIV2+X1%+1,Y1%+(Y2%-Y1%)DIV2)C$;
+ENDPROC
+
+DEF FNmenu
+LOCAL X%,Y%,Z%,G$,option : option=0
+IF redraw% THEN
+  COLOUR 128
+  CLS
+  COLOUR 3:VDU 23,16,1,254|
+  PRINTTAB(0,0)STRING$(40,CHR$129)TAB(0,31)STRING$(40,CHR$129);
+  FOR Y%=1 TO 30:VDU31,0,Y%,129,31,39,Y%,129:NEXT
+  COLOUR 10:PROCcen("BATTLETANX",3)
+  COLOUR 2:PROCcen("by Julian Rockey",5)
+ELSE
+  VDU 17,128,28,1,26,38,6,12,26
+ENDIF
+COLOUR 137:COLOUR7
+PROCcenbox("Play Game",9)
+PROCcenbox("Select Maze",13)
+PROCcenbox("Edit Maze",17)
+PROCcenbox("New mazes",21)
+PROCcenbox("Exit from program",25)
+COLOUR 128
+IF redraw% THEN O%=32:V%=0
+message$="Battletanx / (c) SquidSoft 1984-1988. Also available for B/B+/Master and RML 480Z by Julian Rockey, and ZX Spectrum by James Williams produced by Electrosoft. This scrolling routine is 100% BASIC: do THAT on an ST or Amiga! "
+message$+="MOON!! "
+redraw%=TRUE
+*FX15,1
+REPEAT
+  REPEAT
+    WAIT:PROCscroll_message
+    MOUSE X%,Y%,Z%: G$=CHR$(INKEY0 AND &DF)
+  UNTIL Z%<>0 OR INSTR(" PSENX"+CHR$27,G$)>0
+  X%=X% DIV 32:Y%=(1023-Y%)DIV32
+  CASE G$ OF
+    WHEN "P"," "    : Y%=9
+    WHEN "S"        : Y%=13
+    WHEN "E"        : Y%=17
+    WHEN "N"        : Y%=21
+    WHEN "X",CHR$27 : Y%=25
+  ENDCASE
+  CASE Y% OF
+    WHEN 8,9,10:   option=1
+    WHEN 12,13,14: option=2
+    WHEN 16,17,18: option=3
+    WHEN 20,21,22: option=4
+    WHEN 24,25,26: option=5
+  ENDCASE
+UNTIL option>0
+=option
+
+DEF PROCrel
+LOCAL X%,Y%,Z%
+*FX15,0
+REPEAT MOUSE X%,Y%,Z%:UNTILZ%=0
+ENDPROC
+
+DEF FNconfirm
+LOCAL X%,Y%,Z%,G%
+MOVE 448,511:MOVE 864,703:*SGet temp
+COLOUR 129:VDU 28,14,15,26,10,12,26
+COLOUR7:PROCcen("Are you sure?",11)
+COLOUR3:PRINTTAB(17,13)"Yes"TAB(22,13)"No"
+REPEAT REPEAT MOUSE X%,Y%,Z%:G%=INKEY0 AND &DF
+UNTIL Z%<>0 OR G%=89 OR G%=78
+X%=X% DIV 32:Y%=(1023-Y%)DIV32
+UNTIL (Y%=13 AND ((X%>=17 AND X%<=19) OR (X%=22 OR X%=23))) OR G%=89 OR G%=78
+*SChoose temp
+PLOT &ED,448,511
+*SDelete temp
+COLOUR 128
+PROCrel
+=X%<20 OR G%=89
+
+DEF PROCscroll_message
+LOCAL X%,Y%:X%=POS:Y%=VPOS
+MOVE 36,96:MOVE 1244,128
+PLOT 190,32,96
+VDU 24,36;96;1240;128;
+O%+=4:IF O%>32 THEN
+  O%=4:V%+=1:IF V%>LENmessage$ THEN V%=1
+  Q%=ASCMID$(message$,V%,1)
+ENDIF
+GCOL 13:MOVE 1240-O%,128:VDU 5,Q%,4:OFF
+VDU 26,31,X%,Y%
+ENDPROC
+
+DEF PROCfuzzin
+LOCAL I%,G%
+G%=16*col%+2
+FOR I%=mazlen-1000 TO mazlen:IF (I%?maze AND 15)=0 THEN I%?maze=G%
+NEXT
+ENDPROC
+
+DEF FNinput(len%,cant$,scroll%)
+LOCAL in$,g%
+esc%=FALSE
+ON
+REPEAT
+  REPEAT
+    g%=INKEY0
+    IF scroll% THEN WAIT:PROCscroll_message:ON
+  UNTIL INSTR(cant$,CHR$g%)=0 AND g%<>-1
+  IF g%>31 AND g%<127 AND LENin$<len% THEN
+    VDU g%
+    in$+=CHR$g%
+  ENDIF
+  IF g%=127 AND LENin$>0 THEN
+    VDU 127
+    in$=LEFT$(in$)
+  ENDIF
+UNTIL g%=13 OR g%=27
+esc%=g%=27
+OFF
+=in$
+
+DEF PROCgetmazes
+COLOUR 128:VDU 28,1,26,38,6,12,26
+COLOUR 1:PROCcen("Enter the filename of the screens",8)
+REPEAT
+  COLOUR 128+9:PROCcen(STRING$(12," "),11)
+  COLOUR 7
+  VDU 31,15,11:f$=FNinput(10,"@#$%^&*()-+=][}{\|"".",TRUE)
+  ok%=TRUE
+  IF f$<>"" THEN
+    IF FNflen(f$)<>&274C AND FNflen(f$)>-1 THEN COLOUR12:COLOUR128:PROCcen("Wrong file type",17):ok%=FALSE
+  ENDIF
+UNTIL (f$<>"" AND ok%) OR esc%
+IF NOT esc% THEN
+  COLOUR128:PROCcen("               ",17)
+  f$=path$+"."+f$
+  IF NOT FNlook(f$) THEN
+    COLOUR 5:PROCcen("New screens",15)
+  ENDIF
+  screen_file$=f$
+  PROCgetscreens
+ENDIF
+COLOUR 128:redraw%=FALSE
+ENDPROC
+
+DEF PROCselmazeupdate
+LOCAL I%
+VDU 31,0,27:COLOUR14:PRINT"Screen ";
+COLOUR 128
+FOR I%=1 TO 10:IF I%=screen% THEN COLOUR 13 ELSE COLOUR 12
+PRINT;I%;" ";:NEXT
+ENDPROC
+
+DEF PROCselmaze
+LOCAL X%,Y%,Z%,G%,exit: exit=FALSE
+COLOUR 128:CLS
+COLOUR1:PRINTTAB(0,29)"Click here to exit to main menu";
+PROCselmazeupdate:COLOUR1:PROCcen("Select a maze to play in",0)
+PROCcopymaze(screen%):PROCdrawmaze
+REPEAT
+  REPEAT
+    MOUSE X%,Y%,Z%
+    G%=INKEY0
+  UNTIL Z%<>0 OR G%<>-1
+  X%=X%DIV32:Y%=(1023-Y%)DIV32
+  IF Y%=29 OR G%=27 THEN exit=TRUE
+  IF Y%=27 THEN
+    screen%=(X%-7)DIV2+1
+    IF screen%>10 THEN screen%=10
+    IF screen%<1 THEN screen%=1
+    PROCselmazeupdate:PROCcopymaze(screen%):PROCdrawmaze
+  ENDIF
+UNTIL exit
+ENDPROC
+
+DEF PROCgameover
+LOCAL A$,X%,Y%,Z%,G%
+IF dead%(1)=target% AND dead%(2)=target% THEN A$="It's a draw!" ELSE IF dead%(1)=target% THEN A$="PLayer 1 wins!" ELSE A$="Player 2 wins!"
+COLOUR 128+15:COLOUR 1:PROCcenbox(A$,15)
+*FX15,1
+TIME=0:REPEAT MOUSE X%,Y%,Z%:G%=INKEY0:UNTIL TIME>300 OR G%<>-1 OR Z%<>0
+menu=TRUE:COLOUR 128
+ENDPROC
+
+DEF FNflen(F$):LOCAL F%,G%
+F%=OPENINF$:IF F%=0 THEN
+  G%=-1
+ELSE
+  G%=EXT#F%
+  CLOSE #F%
+ENDIF
+=G%
+G%=

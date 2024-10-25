@@ -1,0 +1,216 @@
+   10REM >$.Games.!Menu
+   20REM Menu for Archimedes (Version 1)
+   30REM Written by Julian Rockey on 28 Dec 1987
+   40version$="1.0"
+   50prog_dir$="$.Games"
+   60title$="Archimedes Games"
+   70llen%=80
+   80PROCtest_exit
+   90*If Alias$Exit="$.Games.!Menu" then Set Alias$Exit <ExitStore>
+  100*If Sound="Off" then Audio off Else Audio on
+  110MODE 12:OFF:*Pointer
+  120*Fx229,1
+  130PROCpalette
+  140PROCinit
+  150PROCscreen
+  160PROCgetprog(name$,file$)
+  170*Fx229,0
+  180IF NOT exit THEN
+  190 CLS
+  200 X%=40-LENname$ DIV 2
+  210 COLOUR 6:PRINTTAB(X%-1,11)STRING$(LENname$+2,CHR$128)
+  220 PRINTTAB(X%-1,14)STRING$(LENname$+2,CHR$128)
+  230 COLOUR 7:PROCdouble_height(name$,X%,12)
+  240 COLOUR 0:VDU30
+  250 *Set ExitStore <Alias$Exit>
+  260 *Set Alias$Exit $.Games.!Menu
+  270 OSCLI prog_dir$+"."+file$
+  280 END
+  290ELSE
+  300 MODE 12
+  310 *Exit
+  320 END
+  330ENDIF
+  340END
+  350
+  360PRINT"  8        Light Grey"
+  370PRINT"  9        Dark Grey"
+  380PRINT"  10       Light Brown"
+  390PRINT"  11       Dark Brown"
+  400PRINT"  12       Light Red"
+  410PRINT"  13       Orange"
+  420PRINT"  14       Light Green"
+  430PRINT"  15       Dark Green"
+  440
+  450DEF PROCpalette
+  460COLOUR 8,200,200,200
+  470COLOUR 9,100,100,100
+  480COLOUR 10,200,100,0
+  490COLOUR 11,120,50,0
+  500COLOUR 12,200,100,100
+  510COLOUR 13,255,160,0
+  520COLOUR 14,100,255,100
+  530COLOUR 15,0,150,50
+  540MOUSE COLOUR 1,255,150,100
+  550MOUSE COLOUR 2,100,70,0
+  560ENDPROC
+  570
+  580DEF PROCinit
+  590LOCAL I%
+  600DIM name$(40),file$(40),describe$(40)
+  610DIM data 10
+  620READ num_progs%
+  630IF num_progs%>0 THEN
+  640 FOR I%=1 TO num_progs%
+  650  READ name$(I%),file$(I%),describe$(I%)
+  660 NEXT
+  670ELSE
+  680 MODE 12
+  690 PRINT"No menu available"'"Press a key ...";
+  700 REPEAT MOUSE X,Y,Z:UNTIL INKEY0<>-1 OR Z<>0
+  710 PRINT
+  720 *Exit
+  730 END
+  740ENDIF
+  750ENDPROC
+  760
+  770DEF PROCdouble_height(A$,X%,Y%)
+  780LOCAL I%,J%
+  790VDU 31,X%,Y%
+  800FOR I%=1 TO LEN(A$)
+  810?data=ASCMID$(A$,I%,1)
+  820SYS "OS_Word",10,data
+  830VDU 23,128:FOR J%=1 TO 4:VDU J%?data,J%?data:NEXT:VDU 128,8,10
+  840VDU 23,128:FOR J%=5 TO 8:VDU J%?data,J%?data:NEXT:VDU 128,11
+  850NEXT
+  860ENDPROC
+  870
+  880DEF PROCtime_date
+  890COLOUR 7
+  900COLOUR 132
+  910PRINTTAB(llen%-16,31)LEFT$(TIME$,INSTR(TIME$,".")-1);
+  920ENDPROC
+  930
+  940DEF PROCtime
+  950COLOUR 7:COLOUR 132
+  960VDU 31,0,31:PRINT MID$(TIME$,17);
+  970ENDPROC
+  980
+  990DEF PROCdouble_centre(A$,Y%)
+ 1000PROCdouble_height(A$,llen%DIV2-LENA$DIV2,Y%)
+ 1010ENDPROC
+ 1020
+ 1030DEF PROCcentre(A$,Y%)
+ 1040PRINT TAB(llen%DIV2-LENA$DIV2,Y%)A$;
+ 1050ENDPROC
+ 1060
+ 1070DEF PROCprint_progs(selprog%)
+ 1080LOCAL I%,Y%,startprog%,endprog%
+ 1090COLOUR 128
+ 1100startprog%=selprog%-12
+ 1110endprog%=selprog%+12
+ 1120Y%=2
+ 1130FOR I%=startprog% TO endprog%
+ 1140PROCprint_prog(I%,Y%,TRUE)
+ 1150Y%+=1
+ 1160NEXT
+ 1170ENDPROC
+ 1180
+ 1190DEF PROCprint_prog(I%,Y%,col%)
+ 1200LOCAL X%
+ 1210IF I%>0 AND I%<=num_progs% THEN
+ 1220 IF Y%=14 AND col% THEN COLOUR 3 ELSE COLOUR 2
+ 1230 X%=llen%DIV2-LENname$(I%)DIV2
+ 1240 PRINTTAB(0,Y%)SPCX%name$(I%)SPC(llen%-X%-LENname$(I%));
+ 1250ELSE
+ 1260 PRINT TAB(0,Y%)SPCllen%;
+ 1270ENDIF
+ 1280ENDPROC
+ 1290
+ 1300DEF PROCmove_down
+ 1310IF selprog%<num_progs% THEN
+ 1320 COLOUR 128
+ 1330 PROCprint_prog(selprog%,14,FALSE)
+ 1340 VDU 28,0,26,llen%-1,2,31,0,24,10,26
+ 1350 selprog%+=1
+ 1360 PROCprint_prog(selprog%,14,TRUE)
+ 1370 PROCprint_prog(selprog%+12,26,TRUE)
+ 1380ENDIF
+ 1390ENDPROC
+ 1400
+ 1410DEF PROCmove_up
+ 1420IF selprog%>1 THEN
+ 1430 COLOUR 128
+ 1440 PROCprint_prog(selprog%,14,FALSE)
+ 1450 VDU 28,0,26,llen%-1,2,30,11,26
+ 1460 selprog%-=1
+ 1470 PROCprint_prog(selprog%,14,TRUE)
+ 1480 PROCprint_prog(selprog%-12,2,TRUE)
+ 1490ENDIF
+ 1500ENDPROC
+ 1510
+ 1520DEF PROCscreen
+ 1530COLOUR 132:VDU 23,16,1,254|
+ 1540VDU 31,0,27:FOR I%=1 TO 5:PRINTSPCllen%;:NEXT
+ 1550VDU30,23,16,0,254|
+ 1560PRINT SPCllen%SPCllen%
+ 1570PROCtime_date
+ 1580PRINTTAB(0,31)"ArchMenu V";version$;
+ 1590COLOUR 1:PROCcentre("Click here to exit",31)
+ 1600COLOUR 3
+ 1610PROCdouble_centre(title$,0)
+ 1620VDU 23,128,0,0,0,255,255,0,0,0
+ 1630COLOUR 0:PRINTTAB(0,30)STRING$(llen%,CHR$128);
+ 1640COLOUR 6
+ 1650PROCcentre("Use mouse or  cursor keys to select prog",27)
+ 1660PROCcentre("Press  <select> or  <return> to run prog",28)
+ 1670PROCcentre("Press <menu>  or  <tab>  for information",29)
+ 1680PROCprint_progs(1)
+ 1690ENDPROC
+ 1700
+ 1710DEF PROCgetprog(RETURN name$,RETURN file$)
+ 1720selprog%=1
+ 1730*Fx4,1
+ 1740exit=FALSE
+ 1750REPEAT
+ 1760 G%=INKEY1
+ 1770 MOUSE mousex%,mousey%,button%
+ 1780 IF button%>0 THEN PROCmouse(mousex%,mousey%,button%)
+ 1790 IF G%=138 THEN PROCmove_down
+ 1800 IF G%=139 THEN PROCmove_up
+ 1810 IF G%=27 THEN exit=TRUE
+ 1820UNTIL G%=13 OR exit
+ 1830name$=name$(selprog%)
+ 1840file$=file$(selprog%)
+ 1850*Fx4
+ 1860ENDPROC
+ 1870
+ 1880DEF PROCmouse(X%,Y%,Z%)
+ 1890LOCAL first%,last%,prog%
+ 1900Y%=(1023-Y%) DIV 32
+ 1910first%=15-selprog%:IF first%<2 THEN first%=2
+ 1920last%=first%+num_progs%-1:IF last%>26 THEN last%=26
+ 1930IF Y%>=first% AND Y%<=last% THEN
+ 1940 prog%=Y%-14+selprog%:IF prog%=selprog% OR (Z% AND 4)<>0 THEN G%=13
+ 1950 selprog%=prog%
+ 1960 PROCprint_progs(selprog%)
+ 1970ENDIF
+ 1980IF Y%=31 THEN exit=TRUE
+ 1990ENDPROC
+ 2000
+ 2010REM The following procedure sets up the Exit command, if it has
+ 2020REM not already been set, to execute a *Quit.
+ 2030DEF PROCtest_exit
+ 2040LOCAL ERROR
+ 2050ON ERROR LOCAL OSCLI"Set Alias$Exit Quit":GOTO 2070
+ 2060*If Alias$Exit="" then
+ 2070ON ERROR LOCAL OSCLI"Set Sound On":ENDPROC
+ 2080*If Sound="" then
+ 2090ENDPROC
+ 2100
+ 2110DATA 5
+ 2120DATA Archenoid,Archenoid,"An extended version of Breakout, with multiple screens, more features and a screen designer."
+ 2121DATA Battletanx,Battletanx,"A simple two player tank game, where you can fight your opponent in pre-defined mazes or build your own."
+ 2130DATA Lander,Lander,The spectacular 3D game that the Archimedes is famed for.
+ 2140DATA Missile Command,MissileCmd,Save your cities from the incoming missiles.
+ 2150DATA Stellar,Stellar,Guide your spaceship to land on 15 different pads, and then do it at different gravities!
