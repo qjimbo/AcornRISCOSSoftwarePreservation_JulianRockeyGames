@@ -16,6 +16,11 @@ The disk has the label **BUGames** and contained a **Games** folder, with the fo
 * **Missile Command**: Archimedes BBC BASIC V version by Julian Rockey and James Williams, Started 16 Dec 1987 ... Finished 27 Dec 1987
 * **Stellar Rescue**: 'Stellar Rescue' from The Micro User, Archimedes Enhancement: J.Rockey. BBC Micro version originally written by	Andrew Smith and included on a cover disk for The Micro User magazine (Micro User Vol.3, No.3 - May 1985)
 
+* **Lander**: The original Lander demo from the Acorn Applications Disk by David Braben.
+* **Zarch**: The Zarch game also by David Braben.
+
+Both Lander and Zarch appear to have been modified to load from the **~code** subfolder.
+
 ## Screenshots
 ### Menu for Archimedes (!Menu)
 ![image](https://github.com/user-attachments/assets/52a52c6b-4d7f-4bb2-aeef-f3e9774ce43c)
