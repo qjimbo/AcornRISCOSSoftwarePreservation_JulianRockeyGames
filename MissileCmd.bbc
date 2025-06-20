@@ -1,0 +1,569 @@
+   10REM >$.Games.MissileCmd
+   20REM Missile Command
+   30REM Archimedes BBC BASIC V version by Julian Rockey and James Williams
+   40REM Started 16 Dec 1987 ... Finished 27 Dec 1987
+   50hifile$="$.Data.MissScore":  REM This file is created if not present
+   60*FX229,1
+   70*SLOAD $.Games.~code.MissSpr
+   80ON ERROR IF ERR=17 THEN GOTO 160 ELSE VDU4,30:PRINTREPORT$;" at line ";ERL:END
+   90*FX229
+  100PROCtest_exit
+  110MODE 9:OFF:*Pointer
+  120MOUSE STEP 2
+  130max%=20:maxexp%=15:nlev%=15
+  140PROCinit
+  150PROCsoundinit
+  160REPEAT
+  170PROCtitle
+  180IF startgame THEN
+  190PROCsetvars
+  200REPEAT
+  210PROCinitlevel
+  220PROCsetscreen
+  230PROCstartlevel
+  240REPEAT
+  250Z%=TIME
+  260PROCmissiles
+  270PROCexplosions
+  280PROCalien
+  290REPEAT Z2%=TIME:REPEATPROCinput:UNTILTIME>=Z2%+4:PROCalien:UNTIL TIME>=Z%+10
+  300UNTIL missilesleft%=0 AND nexp%=0 AND alienX%=-9999
+  310IF NOT dead THEN PROCnextlevel
+  320UNTIL FNcitiesleft=0
+  330PROCgameover
+  340ENDIF
+  350UNTIL arthur OR desktop
+  360OSCLI"Remove "+hifile$
+  370F%=OPENOUThifile$:PRINT#F%,great$,great%:CLOSE#F%
+  380*Fx15
+  390SOUND ON
+  400VOICES 1
+  410VOICE 1,"WaveSynth-Beep"
+  420*SNew
+  430MODE 12
+  440IF arthur THEN
+  450*Exit
+  460ELSE
+  470OFF:COLOUR 0
+  480*Desktop
+  490ENDIF
+  491END
+  500DEFPROCgameover
+  510COLOUR 128:VDU28,0,20,39,2,12,26
+  520PROCfade("Game Over",12,13,170,30,255)
+  530PROCdelay(200)
+  540IF score%>great% THEN PROCalltimegreat ELSE IF score%>hiscore%(8) THEN PROChiscore
+  550ENDPROC
+  560
+  570DEF PROCalltimegreat
+  580CLS:VDU20:PROCpalette
+  590GCOL 1:LINE 0,0,1279,0:DRAW 1279,1023:DRAW 0,1023:DRAW 0,0
+  600PROCfade("MISSILE COMMAND",4,7,255,255,255)
+  610PROCfade("Congratulations! Your score ranks as",8,13,255,160,0)
+  620PROCfade("the ALL TIME GREAT of Missile Command.",10,5,255,160,0)
+  630PROCfade("Please enter your name below.",14,6,0,255,255)
+  640COLOUR 2
+  650ON:INPUT TAB(10,18)name$:OFF
+  660FOR I%=7 TO 1 STEP -1:hiname$(I%+1)=hiname$(I%)
+  670hiscore%(I%+1)=hiscore%(I%):NEXT
+  680hiscore%(1)=great%:hiname$(1)=great$
+  690great$=LEFT$(name$,13):great%=score%
+  700ENDPROC
+  710
+  720DEF PROChiscore
+  730CLS:VDU20:PROCpalette
+  740GCOL 1:LINE 0,0,1279,0:DRAW 1279,1023:DRAW 0,1023:DRAW 0,0
+  750K%=9:REPEAT K%-=1:UNTIL hiscore%(K%)>score% OR K%=0
+  760K%+=1
+  770PROCfade("MISSILE COMMAND",4,7,255,255,255)
+  780PROCfade("Well done! Your score ranks in",8,13,255,160,0)
+  790PROCfade("the top eight, at position "+STR$K%+".",10,5,255,160,0)
+  800PROCfade("Please enter your name below.",14,6,0,255,255)
+  810COLOUR 2
+  820ON:INPUT TAB(10,18)""name$
+  830OFF:name$=LEFT$(name$,13)
+  840IF K%<8 THEN
+  850FOR I%=7 TO K% STEP -1
+  860hiname$(I%+1)=hiname$(I%):hiscore%(I%+1)=hiscore%(I%)
+  870NEXT
+  880hiscore%(K%)=score%:hiname$(K%)=name$:ENDPROC
+  890DEF PROCnextlevel
+  900LOCAL ammo%,I%,J%,bonus%,K%
+  910COLOUR 7:COLOUR 128
+  920ammo%=misbase%(1)+misbase%(2)+misbase%(3)
+  930bonus%=FNcitiesleft*100*level%+ammo%*10*level%
+  940IF bonus%>0 THEN
+  950COLOUR 13:PROCcen("Level "+STR$level%+" complete.",8)
+  960bonus%=0:COLOUR 3:PRINTTAB(5,12)"Bonus:";:COLOUR2:PRINT" 0"
+  970IF ammo%>0 THEN
+  980COLOUR 1:PRINT TAB(5,15)"Ammo"
+  990K%=24
+ 1000FOR I%=1 TO 3
+ 1010IF misbase%(I%)>0 THEN
+ 1020FOR J%=1 TO misbase%(I%)
+ 1030GCOL 3,1:LINE baseX%(I%),130,K%*16+8,1023-15*32-16
+ 1040misbase%(I%)-=1:bonus%+=4*mult%
+ 1050PROCupdatebases
+ 1060COLOUR 128:GCOL 10:POINT K%*16+4,1023-15*32-16:DRAW BY 8,0:DRAW BY -4,4
+ 1070COLOUR 2:PRINTTAB(12,12);bonus%
+ 1080STEREO 2,((K%-24)/ammo%)*253-127:SOUND 2,-15,0,2
+ 1090PROCwait(3):GCOL3,1:LINE baseX%(I%),130,K%*16+8,1023-15*32-16
+ 1100K%+=1:NEXT
+ 1110ENDIF
+ 1120NEXT
+ 1130ELSE
+ 1140COLOUR 1:PRINTTAB(5,15)"No ammo left"
+ 1150ENDIF
+ 1160IF FNcitiesleft>0 THEN
+ 1170COLOUR 1:PRINTTAB(5,17)"Cities"
+ 1180K%=12*32:J%=-127
+ 1190FOR I%=1 TO 6
+ 1200IF city%(I%)<>0 THEN
+ 1210GCOL 0,7:*SCHOOSE cityblank
+ 1220PLOT &ED,destX%(I%)-60,83
+ 1230*SCHOOSE city
+ 1240PLOT &ED,K%,1023-18*32:K%+=150
+ 1250STEREO 3,J%:J%=-J%:SOUND 3,-15,0,10
+ 1260bonus%+=100*mult%
+ 1270COLOUR 2:PRINTTAB(12,12);bonus%
+ 1280PROCwait(20)
+ 1290ENDIF
+ 1300NEXT
+ 1310ELSE
+ 1320COLOUR 1:PRINTTAB(5,17)"No cities left"
+ 1330ENDIF
+ 1340ENDIF
+ 1350score%+=bonus%:PROCdelay(100):PROCprintscore
+ 1360level%+=1
+ 1370ENDIF
+ 1380PROCdelay(300)
+ 1390ENDPROC
+ 1400
+ 1410DEF PROCcen(A$,Y%):PRINT TAB(20-LENA$DIV2,Y%)A$;:ENDPROC
+ 1420
+ 1430DEF PROCwait(K%):LOCAL I%
+ 1440IF K%>0 THEN FOR I%=1 TO K%:WAIT:NEXT
+ 1450ENDPROC
+ 1460
+ 1470DEF FNcitiesleft
+ 1480LOCAL left%,I%
+ 1490left%=0
+ 1500FOR I%=1 TO 6:IF city%(I%)<>0 THEN left%+=1
+ 1510NEXT
+ 1520=left%
+ 1530DEF PROCdelay(T%)
+ 1540LOCAL X%,Y%,Z%,A%
+ 1550T%=TIME+T%
+ 1560*FX15
+ 1570REPEAT
+ 1580MOUSE X%,Y%,Z%
+ 1590A%=INKEY0
+ 1600UNTIL A%>-1 OR Z%<>0 OR TIME>T%
+ 1610ENDPROC
+ 1620
+ 1630DEF PROCinit
+ 1640DIM misSX%(max%),misSY%(max%),misX(max%+1),misY(max%),misDX(max%),misDY%(max%),dest%(max%),destX%(9)
+ 1650DIM exp%(maxexp%),expX%(maxexp%),expY%(maxexp%)
+ 1660DIM city%(6),misbase%(3),baseX%(3),speedstep%(nlev%),hiscore%(8),hiname$(8)
+ 1670FOR I%=1 TO 9:READ destX%(I%):NEXT
+ 1680FOR I%=1 TO 3:READ baseX%(I%):NEXT
+ 1690FOR I%=1 TO nlev%:READ speedstep%(I%):NEXT
+ 1700noisechan%=3
+ 1710FOR I%=1 TO 8:READ hiname$(I%),hiscore%(I%):NEXT
+ 1720IF RND(1)>.5 THEN SWAP hiname$(1),hiname$(2)
+ 1730great$="Acorn":great%=30000
+ 1740F%=OPENINhifile$:IF F%>0 THEN
+ 1750INPUT#F%,great$,great%
+ 1760CLOSE#F%
+ 1770ENDIF
+ 1780ENDPROC
+ 1790
+ 1800DATA 198,344,490,788,934,1080,50,640,1230
+ 1810DATA 50,640,1230
+ 1820DATA 2,3,4,6,7,9,11,12,16,18,19,20,22,23,25
+ 1830DATA JMR,20000,JTKW,15000,ARM,10000,FDC,5000,RGB,3000,CTRL,2000,CPU,1000,RISC,700,VIA,500,MSDOS,250
+ 1840DEF PROCsetvars
+ 1850city%()=1:level%=1:score%=0
+ 1860ENDPROC
+ 1870
+ 1880DEF PROCinitlevel
+ 1890IF level%<=nlev% THEN lev%=level% ELSE lev%=nlev%
+ 1900nmis%=0:nexp%=0:missilesleft%=5+2.5*lev%:missiles_to_come%=missilesleft%
+ 1910mis_onscrn%=2.5*SQR(lev%):IF mis_onscrn%>max% THEN mis_onscrn%=max%
+ 1920dead=FALSE:finished=FALSE
+ 1930exp%()=-1:misX()=-1:misbase%()=15:okfire%=FALSE
+ 1940alienX%=-9999:alienY%=0:alienT%=0:alienS$=""
+ 1950mult%=1+(level%-1) DIV 3:IF mult%>5 mult%=5
+ 1960ENDPROC
+ 1970
+ 1980DEF PROCstartlevel
+ 1990COLOUR 128
+ 2000PROCfade("MISSILE COMMAND",10,7,255,255,255)
+ 2010PROCfade("Get  ready",13,5,255,0,0)
+ 2020PROCfade(STR$mult%+" x points",15,6,0,255,255)
+ 2030PROCdelay(300)
+ 2040PRINTTAB(0,10)SPC40TAB(0,13)SPC40TAB(0,15)SPC40
+ 2050VDU20:PROCpalette:PROCcolours(mult%)
+ 2060ENDPROC
+ 2070
+ 2080DEF PROCsetscreen
+ 2090VDU 20:CLS
+ 2100PROCpalette
+ 2110PROCcolours(mult%)
+ 2120*SChoose city
+ 2130MOUSE ON
+ 2140MOUSE STEP 2
+ 2150MOUSE RECTANGLE 0,200,1279,759
+ 2160VDU 24,0;0;1279;959;
+ 2170FOR zx=0 TO 1
+ 2180city%=1
+ 2190GCOL 14
+ 2200MOVE 0,100
+ 2210PROChill
+ 2220PROCdip:PROCdip:PROCdip:DRAW BY 50,0
+ 2230PROChill:PROCdip:PROCdip:PROCdip:DRAW BY 50,0:PROChill
+ 2240IF zx=0 THEN FILL 0,0:MOVE destX%(1)-60,83:MOVE BY 120,50:*SGet cityblank
+ 2250NEXT
+ 2260PROCupdatebases
+ 2270COLOUR 128+9:PRINT TAB(0,0);SPC80;:COLOUR 128
+ 2280PROCprintscore
+ 2290COLOUR 128+9:COLOUR 3:PROCcen("Missile Command",0)
+ 2300ENDPROC
+ 2310
+ 2320DEF PROChill
+ 2330DRAW BY 50,30:DRAW BY 50,-30
+ 2340ENDPROC
+ 2350
+ 2360DEF PROCdip
+ 2370DRAW BY 50,0
+ 2380DRAW BY 20,-20
+ 2390DRAW BY 57,0
+ 2400DRAW BY 20,20
+ 2410IF zx=1 THEN
+ 2420IF city%(city%)<>0 THEN
+ 2430GCOL 8,0
+ 2440*SChoose city
+ 2450PLOT &E9,-97,-20
+ 2460GCOL 0,14
+ 2470MOVE BY 97,20
+ 2480ENDIF
+ 2490city%=city%+1
+ 2500ENDIF
+ 2510ENDPROC
+ 2520
+ 2530DEF PROCupdatebases
+ 2540COLOUR 128+14:COLOUR 11
+ 2550PRINTTAB(1,30);FNnum(misbase%(1))TAB(19,30);FNnum(misbase%(2))TAB(38,30);FNnum(misbase%(3));
+ 2560ENDPROC
+ 2570
+ 2580DEF PROCinput
+ 2590LOCAL X%,Y%,Z%
+ 2600IF INKEY-17 THEN *Audio Off
+ 2610IF INKEY-82 THEN *If Sound<>"Off" then Audio On
+ 2620IF INKEY-34 THEN *Speaker Off
+ 2630IF INKEY-51 THEN *Speaker On
+ 2640MOUSE X%,Y%,Z%
+ 2650IF Z%=0 THEN okfire%=TRUE
+ 2660IF Z%<>0 AND (missilesleft%>0 OR alienX%>-9999) AND okfire% THEN PROCfire:okfire%=FALSE
+ 2670ENDPROC
+ 2680
+ 2690DEF PROCfire
+ 2700LOCAL baseused%
+ 2710IF misbase%(1)+misbase%(2)+misbase%(3)>0 THEN
+ 2720IF X%<355 THEN baseused%=1 ELSE IF X%>935 THEN baseused%=3 ELSE baseused%=2
+ 2730WHILE misbase%(baseused%)=0 : baseused%+=1:IF baseused%=4 THEN baseused%=1
+ 2740ENDWHILE
+ 2750PROCstartexplosion(X%,Y%,FALSE)
+ 2760IF okexp% THEN
+ 2770misbase%(baseused%)-=1
+ 2780PROCstereo(2,X%):SOUND 2,-10,50,3
+ 2790GCOL 3,1:LINE X%,Y%,baseX%(baseused%),130:WAIT
+ 2800LINE X%,Y%,baseX%(baseused%),130
+ 2810PROCupdatebases
+ 2820ENDIF
+ 2830ENDIF
+ 2840ENDPROC
+ 2850
+ 2860DEF PROCstereo(chan%,X%):LOCAL stereo%
+ 2870stereo%=(X%-640) DIV 5:IF stereo%<-127 stereo%=-127 ELSE IF stereo%>127 stereo%=127
+ 2880STEREO chan%,stereo%:ENDPROC
+ 2890
+ 2900DEF PROCstartmissile(startx%,starty%)
+ 2910LOCAL N%
+ 2920N%=0:WHILE misX(N%)>=0 AND N%<=mis_onscrn% N%=N%+1:ENDWHILE
+ 2930IF N%<=max% THEN
+ 2940misX(N%)=startx%:misY(N%)=starty%:misSX%(N%)=startx%:misSY%(N%)=starty%
+ 2950dest%(N%)=RND(9):destX%=destX%(dest%(N%))
+ 2960misDY%(N%)=speedstep%(lev%)+RND(5)-1:misDX(N%)=misDY%(N%)*((startx%-destX%)/(starty%-100))
+ 2970nmis%+=1
+ 2980ENDIF
+ 2990ENDPROC
+ 3000
+ 3010DEF PROCdeadmissile(N%)
+ 3020missilesleft%-=1
+ 3030GCOL 0
+ 3040LINE misSX%(N%),misSY%(N%),misX(N%),misY(N%)
+ 3050LINE misSX%(N%)-4,misSY%(N%),misX(N%)-4,misY(N%)
+ 3060LINE misSX%(N%)+4,misSY%(N%),misX(N%)+4,misY(N%)
+ 3070PROCstartexplosion(misX(N%),misY(N%),TRUE)
+ 3080misX(N%)=-1:nmis%-=1:ENDPROC
+ 3090
+ 3100DEF PROCmissiles
+ 3110IF missiles_to_come%>0 AND nmis%<mis_onscrn% AND RND(100)>90 THEN
+ 3120missiles_to_come%-=1
+ 3130PROCstartmissile(RND(1279),950)
+ 3140ENDIF
+ 3150FOR I%=0 TO max%
+ 3160IF misX(I%)>=0 THEN
+ 3170MOVE misX(I%),misY(I%)
+ 3180misX(I%)-=misDX(I%):misY(I%)+=-misDY%(I%)
+ 3190GCOL 10:IF POINT(misX(I%),misY(I%))=15 OR misY(I%)<100 THEN
+ 3200IF misY(I%)<100 THEN
+ 3210IF dest%(I%)<7 THEN city%(dest%(I%))=0
+ 3220IF dest%(I%)>6 THEN misbase%(dest%(I%)-6)=0:PROCupdatebases
+ 3230ENDIF
+ 3240PROCdeadmissile(I%)
+ 3250IF misY(I%)>=100 THEN score%+=10*mult%
+ 3260PROCprintscore
+ 3270ELSE
+ 3280DRAW misX(I%),misY(I%)
+ 3290IF misY(I%)>300 AND lev%>3 AND RND(100)>98 THEN PROCsplit(misX(I%),misY(I%))
+ 3300ENDIF
+ 3310ENDIF
+ 3320NEXT
+ 3330ENDPROC
+ 3340
+ 3350DEF PROCsplit(X%,Y%)
+ 3360IF missiles_to_come%>1 AND mis_onscrn%-nmis%>1 THEN
+ 3370LOCAL J%,rnd%
+ 3380rnd%=RND(2+lev% DIV 2):IF rnd%>7 THEN rnd%=7
+ 3390IF rnd%>missiles_to_come% THEN rnd%=missiles_to_come%
+ 3400IF rnd%>mis_onscrn%-nmis% THEN rnd%=mis_onscrn%-nmis%
+ 3410FOR J%=1 TO rnd%:PROCstartmissile(X%,Y%):missiles_to_come%-=1
+ 3420NEXT
+ 3430ENDIF
+ 3440ENDPROC
+ 3450
+ 3460DEF FNnum(T%)=LEFT$(STR$T%+"  ",2)
+ 3470
+ 3480DEF PROCprintscore
+ 3490COLOUR 128+9:COLOUR 1
+ 3500PRINTTAB(0,1)"Score: ";score%TAB(14,1)"Hi: ";hiscore%(1);" by ";hiname$(1);
+ 3510ENDPROC
+ 3520
+ 3530DEF PROCstartexplosion(startx%,starty%,blank%)
+ 3540LOCAL N%
+ 3550okexp%=TRUE
+ 3560N%=-1:REPEAT N%+=1:UNTIL exp%(N%)=-1 OR N%=maxexp%
+ 3570IF exp%(N%)=-1 THEN
+ 3580PROCstereo(noisechan%,startx%):SOUND noisechan%,-15,0,100
+ 3590noisechan%+=1:IF noisechan%=9 THEN noisechan%=3
+ 3600exp%(N%)=1:expX%(N%)=startx%:expY%(N%)=starty%
+ 3610nexp%+=1
+ 3620ELSE
+ 3630okexp%=FALSE
+ 3640IF blank% THEN
+ 3650*SChoose expoff
+ 3660GCOL 8,0
+ 3670PLOT &ED,startx%-96,starty%-48
+ 3680PROCstereo(noisechan%,startx%):SOUND noisechan%,-15,0,100
+ 3690noisechan%+=1:IF noisechan%=9 THEN noisechan%=3
+ 3700ENDIF
+ 3710ENDIF
+ 3720ENDPROC
+ 3730
+ 3740DEF PROCexplosions
+ 3750LOCAL I%
+ 3760FOR I%=0 TO maxexp%
+ 3770IF alienX%>-9999 AND TIME>alienT% alienT%=TIME+60:PROCstereo(1,alienX%):SOUND 1,-12,alpi%,10:alpi%=alpi% EOR 12
+ 3780IF exp%(I%)>=0 THEN
+ 3790IF exp%(I%)>10 THEN T$="expoff"+STR$(11-(exp%(I%)-10)) ELSE T$="exp"+STR$(exp%(I%))
+ 3800OSCLI"SChoose "+T$:GCOL8,0
+ 3810PLOT &ED,expX%(I%)-96,expY%(I%)-48
+ 3820exp%(I%)+=1
+ 3830IF exp%(I%)>20 THEN exp%(I%)=-1:nexp%-=1
+ 3840ENDIF
+ 3850NEXT
+ 3860ENDPROC
+ 3870
+ 3880DEF PROCalien
+ 3890LOCAL off%,killed%,Y%
+ 3900IF alienX%=-9999 THEN
+ 3910IF lev%>2 AND RND(100)>97 AND missilesleft%>0 THEN
+ 3920alienY%=RND(300)+400
+ 3930IF RND(1)>.5 THEN
+ 3940alienX%=-100
+ 3950*SChoose alien1
+ 3960alienS$="alien1"
+ 3970ELSE
+ 3980alienX%=1300
+ 3990*SChoose alien2
+ 4000alienS$="alien2"
+ 4010ENDIF
+ 4020PLOT &ED,alienX%,alienY%:alpi%=0:alienT%=TIME+30
+ 4030ENDIF
+ 4040ELSE
+ 4050IF RIGHT$(alienS$)="1" THEN off%=80 ELSE off%=-4
+ 4060alienX%+=10*SGN(off%)
+ 4070OSCLI"SChoose "+alienS$
+ 4080GCOL 0,7
+ 4090PLOT &ED,alienX%,alienY%
+ 4100killed%=FALSE
+ 4110FOR Y%=alienY% TO alienY%+64 STEP 8
+ 4120IF POINT(alienX%+off%,Y%)=15 THEN killed%=TRUE
+ 4130NEXT
+ 4140IF killed% THEN score%+=150*mult%:PROCprintscore:PROCstartexplosion(alienX%+44,alienY%+32,TRUE):alienX%=-9999
+ 4150IF alienX%>100 AND alienX%<1200 AND RND(100)=99 PROCsplit(alienX%,alienY%)
+ 4160IF alienX%>1380 OR alienX%<-100 THEN alienX%=-9999
+ 4170ENDIF
+ 4180ENDPROC
+ 4190
+ 4200DEF PROCsoundinit
+ 4210VOICES 8
+ 4220VOICE 1,"StringLib-Soft"
+ 4230VOICE 2,"Percussion-Soft"
+ 4240FOR I%=3 TO 8:VOICE I%,"Percussion-Noise":NEXT
+ 4250ENDPROC
+ 4260
+ 4270DEF PROCcolours(C%)
+ 4280LOCAL R%,G%,B%,I%,A%
+ 4290RESTORE 4480
+ 4300IF C%>1 THEN FOR I%=1 TO (C%-1)*4*6:READA%:NEXT
+ 4310FOR I%=1 TO 6:READ A%,R%,G%,B%:COLOUR A%,R%,G%,B%:NEXT
+ 4320ENDPROC
+ 4330
+ 4340DEF PROCpalhelp
+ 4350PRINT"LIBRARY: PalSet16"
+ 4360PRINT"Sets up colours as follows:"
+ 4370PRINT'"Logical    Colour"
+ 4380PRINT"  8        Light Grey"
+ 4390PRINT"  9        Dark Grey"
+ 4400PRINT"  10       Light Brown"
+ 4410PRINT"  11       Dark Brown"
+ 4420PRINT"  12       Light Red"
+ 4430PRINT"  13       Orange"
+ 4440PRINT"  14       Light Green"
+ 4450PRINT"  15       Light Orange"
+ 4460ENDPROC
+ 4470
+ 4480DATA 9,100,100,100
+ 4490DATA 15,230,150,110
+ 4500DATA 14,100,255,100
+ 4510DATA 0,0,0,0
+ 4520DATA 1,255,0,0
+ 4530DATA 10,250,100,100
+ 4540
+ 4550DATA 9,0,100,100
+ 4560DATA 15,255,100,0
+ 4570DATA 14,50,175,50
+ 4580DATA 0,0,0,0
+ 4590DATA 1,200,255,0
+ 4600DATA 10,200,230,200
+ 4610
+ 4620DATA 9,100,0,0
+ 4630DATA 15,100,200,150
+ 4640DATA 14,50,75,200
+ 4650DATA 0,75,0,75
+ 4660DATA 1,50,200,255
+ 4670DATA 10,255,250,0
+ 4680
+ 4690DATA 9,120,100,0
+ 4700DATA 15,175,175,255
+ 4710DATA 14,255,150,16
+ 4720DATA 0,0,75,0
+ 4730DATA 1,255,240,255
+ 4740DATA 10,50,255,50
+ 4750
+ 4760DATA 9,0,75,0
+ 4770DATA 15,200,50,255
+ 4780DATA 14,150,150,16
+ 4790DATA 0,0,0,140
+ 4800DATA 1,255,0,255
+ 4810DATA 10,255,255,50
+ 4820
+ 4830DEF PROCpalette
+ 4840WAIT
+ 4850COLOUR 8,200,200,200
+ 4860COLOUR 9,100,100,100
+ 4870COLOUR 10,20,200,200
+ 4880COLOUR 11,120,50,0
+ 4890COLOUR 12,200,100,100
+ 4900COLOUR 13,255,160,0
+ 4910COLOUR 14,100,255,100
+ 4920COLOUR 15,230,150,110
+ 4930VDU 19,0,24,50,0,0
+ 4940MOUSE COLOUR 1,200,255,0
+ 4950MOUSE COLOUR 2,100,120,0
+ 4960ENDPROC
+ 4970
+ 4980DEF PROCfade(T$,Y%,C%,R%,G%,B%)
+ 4990LOCAL I%
+ 5000COLOUR C%,0,0,0:COLOUR C%
+ 5010PRINTTAB(20-LENT$DIV2,Y%)T$
+ 5020FOR I%=0 TO 255 STEP 8
+ 5030WAIT
+ 5040COLOUR C%,R%*(I%/255),G%*(I%/255),B%*(I%/255)
+ 5050NEXT
+ 5060ENDPROC
+ 5070
+ 5080DEF PROCtitle
+ 5090*FX229,1
+ 5100COLOUR 128:VDU26:CLS:*POINTER
+ 5110MOUSE STEP 2
+ 5120VDU20:PROCpalette
+ 5130GCOL 15:LINE 0,0,1279,0
+ 5140DRAW 1279,1023:DRAW 0,1023:DRAW 0,0
+ 5150PROCfade("MISSILE COMMAND",3,7,255,255,255)
+ 5160PROCfade("by Julian Rockey and James Williams",6,6,200,150,100)
+ 5170PROCfade("S and Q for sound on and off",22,4,200,200,100)
+ 5180PROCfade("Use mouse for control",24,5,200,100,100)
+ 5190GCOL 11:RECTANGLE FILL 200,100,880,100
+ 5200RECTANGLE FILL 50,30,300,50
+ 5210RECTANGLE FILL 930,30,300,50
+ 5220GCOL 3:RECTANGLE 200,100,880,100
+ 5230RECTANGLE 50,30,300,50:RECTANGLE 930,30,300,50
+ 5240COLOUR 128+11:COLOUR 14:PROCcen("Click here to start",27)
+ 5250VDU5:GCOL 14:MOVE 90,65:PRINT"Desktop":MOVE 976,65:PRINT" Exit "
+ 5260VDU4:OFF
+ 5270PROChitable
+ 5280REPEAT
+ 5290REPEAT MOUSE X%,Y%,Z%
+ 5300UNTIL Z%<>0
+ 5310startgame=FALSE:arthur=FALSE:desktop=FALSE
+ 5320IF X%>200 AND X%<1080 AND Y%>100 AND Y%<200 THEN startgame=TRUE
+ 5330IF X%>50 AND X%<350 AND Y%>30 AND Y%<80 THEN desktop=TRUE
+ 5340IF X%>930 AND X%<1230 AND Y%>30 AND Y%<80 THEN arthur=TRUE
+ 5350UNTIL startgame OR desktop OR arthur
+ 5360*Fx229,0
+ 5370ENDPROC
+ 5380
+ 5390DEF PROChitable
+ 5400LOCAL I%
+ 5410COLOUR 128:COLOUR 2,0,0,0:COLOUR 8,0,0,0:COLOUR 9,0,0,0
+ 5420COLOUR 12,0,0,0:COLOUR 12
+ 5430PROCcen("All Time Great:",9)
+ 5440PROCfade(great$+" ... "+STR$great%,10,12,200,100,100)
+ 5450FOR I%=1 TO 8
+ 5460COLOUR 2
+ 5470PRINTTAB(5,I%+11);I%;
+ 5480IF I%=1 THEN COLOUR 8 ELSE COLOUR 9
+ 5490PRINTTAB(9,I%+11)hiname$(I%)TAB(25,I%+11);hiscore%(I%)
+ 5500NEXT
+ 5510PROCfade("",0,2,0,255,0)
+ 5520PROCfade("",0,8,200,200,200)
+ 5530PROCfade("",0,9,100,100,100)
+ 5540ENDPROC
+ 5550
+ 5570REM The following procedure sets up the Exit command, if it has
+ 5580REM not already been set, to execute a *Quit.
+ 5590REM It also checks for other variables (such as Sound) and sets them
+ 5600REM as appropriate if they have not already been set.
+ 5610
+ 5620DEF PROCtest_exit
+ 5630IF NOT FNvar_exists("Alias$Exit") THEN *Set Alias$Exit Quit
+ 5640IF NOT FNvar_exists("Sound") THEN *Set Sound On
+ 5650ENDPROC
+ 5660DEF FNvar_exists(varname$)
+ 5670LOCAL A$,exists%
+ 5680SYS "XOS_ReadVarVal",varname$,A$,-1,0,0 TO ,,exists%
+ 5690=exists%<0

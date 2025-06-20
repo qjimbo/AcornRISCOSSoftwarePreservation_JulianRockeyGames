@@ -1,0 +1,61 @@
+REM >$.Games.Lander
+REM (c) Acorn Computers 1987
+REM Version 1.0
+PROCtest_exit
+*If Sound="Off" then Audio Off
+ON ERROR PROCerror:END
+*Pointer
+MOUSE COLOUR 1,200,200,200:MOUSE COLOUR 2,100,100,100
+VDU19,0,24,0,64,0
+*Mount
+PROCassemble
+MOUSE RECTANGLE 0,0,1279,1023
+VDU 21
+*Key1 QUIT|MGo 70000|F|M
+*Fx138,0,129
+END
+DEF PROCassemble
+code=&70000
+FOR I%=0 TO 2 STEP 2:P%=code
+[OPT I%
+ STMFD (13)!,{14}
+ ADR 0,command1
+ SWI &5
+ BL &A614
+ ADR 0,command2
+ SWI &5
+ LDMFD (13)!,{15}
+.command1
+ EQUS "Load $.Games.~code.LanderCode":EQUB 13
+.command2
+ EQUS "Exit":EQUB 13:EQUW 0
+.store
+ EQUD 0
+]:NEXT
+ENDPROC
+
+DEF PROCerror
+LOCAL X%,Y%,Z%,G%
+MODE 12
+PRINT"The error '";REPORT$;"' has occurred."
+PRINT"Press any key...";
+*Fx 15,0
+REPEAT MOUSE X%,Y%,Z%
+G%=INKEY0
+UNTIL G%<>-1 OR Z%<>0
+CLS:*Exit
+ENDPROC
+
+REM The following procedure sets up the Exit command, if it has
+REM not already been set, to execute a *Quit.
+REM It also checks for other variables (such as Sound) and sets them
+REM as appropriate if they have not already been set.
+
+DEF PROCtest_exit
+IF NOT FNvar_exists("Alias$Exit") THEN *Set Alias$Exit Quit
+IF NOT FNvar_exists("Sound") THEN *Set Sound On
+ENDPROC
+DEF FNvar_exists(varname$)
+LOCAL A$,exists%
+SYS "XOS_ReadVarVal",varname$,A$,-1,0,0 TO ,,exists%
+=exists%<0

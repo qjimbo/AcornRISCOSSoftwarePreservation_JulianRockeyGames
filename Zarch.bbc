@@ -1,0 +1,9 @@
+REM > $.Games.Zarch : Zarch Loader
+REM (c) Superior Software 1987
+*Pointer
+VDU 19,0,24,0,100,150
+*Dir $.Games.~code
+*RMKill Percussion
+*RMKill StringLib
+*RMLoad Percussion
+*Run Zarch

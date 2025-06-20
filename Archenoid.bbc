@@ -1,0 +1,674 @@
+   10REM >$.Games.Archenoid
+   20REM written by Keith McAlpine
+   30REM with help from Gem Electronics
+   40REM and extended/modified by Julian Rockey
+   50REM (C)1987 A&B Computing
+   60path$="$.Games.Data.Archenoid":screen_file$=path$+".Screens"
+   70PROCtest_exit
+   80ON ERROR:IF ERR=17 THEN PROCinitial_display:GOTO 150 ELSE MODE 12:REPORT:PRINT" at line ";ERL:END
+   90hi%=10:key=-1:demo%=0
+  100changed%=FALSE
+  110PROCset_system
+  120PROCinitial_display
+  130
+  140isc%=FNcaps(RIGHT$(screen_file$,8))=".SCREENS" OR (LENscreen_file$=7 AND FNcaps(RIGHT$(screen_file$,7))="SCREENS")
+  150REPEAT
+  160IF key>48 AND key<54 AND demo% THEN demo%=0:GOTO 150
+  170PROCtitles
+  180IF demo% THEN
+  190  scr%=RND(30)
+  200  lives%=1
+  210  sc%=0
+  220  IF screen%?((scr%-1)*200+180)=0 THEN scr%=1
+  230ENDIF
+  240IF demo% THEN 280
+  250ON key-48 GOTO 260,6580,4600,6300,4550
+  260scr%=1
+  270sc%=0:lives%=4
+  280REPEAT
+  290GCOL 0:RECTANGLE FILL 0,0,1148,864
+  300grey%()=0:area%()=0
+  310PROCdraw_screen
+  320PROCinit
+  330*SChoose 1
+  340GCOL 11,0
+  350MOUSE batx%,A,A
+  360PLOT &ED,batx%,48
+  370IF bricks%=0 THEN 410
+  380K=INKEY300
+  390GCOL 3,6:MOVE 110,120:PRINT"Hard bricks need ";hits%;" hits each."
+  400IF demo%=0 THEN PROCgrafcen("Password for "+STR$scr%+" is '"+FNps(scr%)+"'.",36)
+  410GCOL 11,0
+  420*SChoose 2
+  430PLOT &ED,ballx%,bally%
+  440*FX21
+  450
+  460ax%=0:ay%=0:speed=INT(scr%*.3)+3:IF speed>6 THEN speed=6
+  470sx%=0:sy%=0
+  480catch%=TRUE:TIME=0
+  490capsule%=FALSE:cx%=0:cy%=0:ocx%=0:ocy%=0
+  500breakout%=FALSE:breaktime%=0
+  510B%=0
+  520
+  530REPEAT
+  540IF capsule% AND TIME>T% THEN VDU 23,27,0,capsule%+2|:PLOT &ED,cx%,cy%:capsule%=0
+  550IF breakout% AND (batx%>=1056 OR TIME>breaktime%) THEN
+  560  VDU 23,27,0,8|:GCOL 8,0:PLOT &ED,1148,0:GCOL 11,0:breakout%=0:breaktime%=0
+  570  IF batx%>=1056 THEN bricks%=0
+  580ENDIF
+  590speed+=0.0005:IF speed>8 THEN speed=8
+  600PROCmove_bat
+  610PROCupdate_ball
+  620UNTIL bricks%<=0 OR lives%=0
+  630IF lives%=0 THEN 650
+  640scr%+=1:IF scr%>50 OR screen%?((scr%-1)*200+180)=0 THEN scr%=1
+  650UNTIL lives%<=0 OR demo%
+  660IF key<>-1 AND demo% THEN 680
+  670PROCgame_over
+  680UNTIL FALSE
+  690END
+  700
+  710DEF PROCdraw_screen
+  720COLOUR 134:COLOUR 3
+  730VDU 4,28,0,31,39,0:OFF:COLOUR 2:PRINT TAB(15,2);scr%;" "
+  740PRINT TAB(23,2);lives%;" "TAB(30,2);hi%
+  750PRINT TAB(5,2);"     "
+  760chr%=((scr%-1) MOD 10)+238
+  770COLOUR 128:COLOUR 15,RND(6)*16,RND(6)*16,RND(6)*16:COLOUR 15
+  780FOR lp%=5 TO 31:PRINTTAB(2,lp%)STRING$(36,CHR$chr%);:NEXT
+  790COLOUR 134:COLOUR 2
+  800addr%=(scr%-1)*200
+  810bricks%=screen%?(addr%+180)
+  820IF bricks%=0 THEN VDU5:ENDPROC
+  830FOR lpy%=144 TO 816 STEP 48
+  840FOR lpx%=0 TO 1056 STEP 96
+  850A=screen%?addr%
+  860hits%=((scr%-1) DIV 2)+2:IF hits%>6 THEN hits%=6
+  870addr%+=1
+  880VDU5:MOVE lpx%,lpy%+48
+  890GCOL 3,A:PRINT brick$
+  900x%=((lpx% DIV 96)*6)+1:y%=((lpy% DIV 48)*3)+1
+  910IF A=1 THEN grey%(x% DIV 6,y% DIV 3)=hits%
+  920IF A=0 THEN 1000
+  930area%(x%,y%)=8:area%(x%+1,y%)=2:area%(x%+2,y%)=2:area%(x%+3,y%)=2:area%(x%+4,y%)=2:area%(x%+5,y%)=7
+  940area%(x%,y%+1)=3:area%(x%+1,y%+1)=9:area%(x%+2,y%+1)=9:area%(x%+3,y%+1)=9:area%(x%+4,y%+1)=9:area%(x%+5,y%+1)=4
+  950area%(x%,y%+2)=5:area%(x%+1,y%+2)=1:area%(x%+2,y%+2)=1:area%(x%+3,y%+2)=1:area%(x%+4,y%+2)=1:area%(x%+5,y%+2)=6
+  960FOR wly%=0 TO 2
+  970FOR wlx%=0 TO 5
+  980area%(x%+wlx%,y%+wly%)+=A*16
+  990NEXT,
+ 1000NEXT,
+ 1010GCOL 3,6:MOVE 110,120:PRINT"Hard bricks need ";hits%;" hits each."
+ 1020IF demo%=0 THEN PROCgrafcen("Password for "+STR$scr%+" is '"+FNps(scr%)+"'.",36)
+ 1030ENDPROC
+ 1040
+ 1050DEF PROCset_system
+ 1060DIM area%(72,54),grey%(12,18),screen% 10500
+ 1070password%=screen%+10000
+ 1080*SNew
+ 1090*SLoad $.Games.~code.ArchBalSpr
+ 1100*SCopy 1 9
+ 1110*SFlipX 9
+ 1120file=OPENIN(screen_file$):IF file>0 THEN CLOSE#file ELSE PROCcreate
+ 1130OSCLI("Load "+screen_file$+" "+STR$~screen%)
+ 1140MODE 9
+ 1150FOR lp%=0 TO 7
+ 1160READ r,g,b:COLOUR lp%,r*16,g*16,b*16
+ 1170COLOUR 15-lp%,r*16,g*16,b*16:NEXT
+ 1180OFF
+ 1190VDU 23,238,204,204,51,51,204,204,51,51
+ 1200VDU 23,239,24,36,90,189,189,90,36,24
+ 1210VDU 23,240,129,66,36,24,24,36,66,129
+ 1220VDU 23,241,1,3,5,9,29,51,65,0
+ 1230VDU 23,242,0,204,51,0,0,204,51,0
+ 1240VDU 23,243,36,126,255,99,99,255,126,36
+ 1250VDU 23,244,16,108,198,186,68,40,16,0
+ 1260VDU 23,245,192,48,12,3,3,12,48,192
+ 1270VDU 23,246,36,126,255,126,126,255,126,36
+ 1280VDU 23,247,36,36,231,0,0,231,36,36
+ 1290ENDPROC
+ 1300
+ 1310DEF PROCinit
+ 1320VOICE 1,"Percussion-Medium"
+ 1330MOUSE RECTANGLE 0,48,1056,0
+ 1340MOUSE STEP 2,0
+ 1350ballx%=528:bally%=88
+ 1360oballx%=ballx%:obally%=bally%
+ 1370MOUSE TO 500,48:batx%=500:obatx%=batx%
+ 1380ENDPROC
+ 1390
+ 1400DEF PROCmove_bat
+ 1410obatx%=batx%
+ 1420IF demo% THEN PROCdemo:GOTO 1450
+ 1430MOUSE batx%,A,B%
+ 1440IF (catch% AND ay%=0 AND B%<>0) THEN ax%=1:ay%=4:catch%=0:PROCcheck_bat
+ 1450IF capsule% THEN
+ 1460  IF (batx%>cx% AND batx%<cx%+64) OR (batx%+94>cx% AND batx%+94<cx%+80) THEN PROCcapsule
+ 1470ENDIF
+ 1480VDU 23,27,0,1|
+ 1490PLOT &ED,obatx%,48
+ 1500PLOT &ED,batx%,48
+ 1510ENDPROC
+ 1520
+ 1530DEF PROCdemo
+ 1540batx%+=sx%+RND(6)-RND(6)
+ 1550IF batx%<8 THEN batx%=8
+ 1560IF batx%>1056 batx%=1056
+ 1570IF catch% AND ay%=0 THEN ax%=1:ay%=4:catch%=0:PROCcheck_bat
+ 1580key=INKEY0:IF key<>-1 THEN bricks%=0:ballx%=oballx%:bally%=obally%
+ 1590ENDPROC
+ 1600
+ 1610DEF PROCupdate_ball
+ 1620oballx%=ballx%:obally%=bally%
+ 1630sx%=(speed*ax%):sy%=(speed*ay%)
+ 1640ballx%+=sx%:bally%+=sy%
+ 1650bx%=(INT(ballx%/16))+1:by%=(INT(bally%/16))+1
+ 1660IF bx%<1 OR bx%>71 THEN ax%=-ax%:ballx%-=sx%*2
+ 1670IF by%>54 THEN ay%=-ay%:bally%-=sy%*2
+ 1680bx%=(INT(ballx%/16))+1:by%=(INT(bally%/16))+1
+ 1690IF bally%<=88 THEN PROCcheck_bat:GOTO 2150
+ 1700check%=area%(bx%,by%) MOD 16
+ 1710col%=area%(bx%,by%) DIV 16
+ 1720IF check%=0 THEN 2150
+ 1730CASE check% OF
+ 1740  WHEN 1:PROCwipebrick:IF ay%<0 ay%=-ay% ELSE ax%=-ax%
+ 1750  WHEN 2:PROCwipebrick:IF ay%>0 ay%=-ay% ELSE ax%=-ax%
+ 1760  WHEN 3:PROCwipebrick:IF ax%>0 ax%=-ax% ELSE ay%=-ay%
+ 1770  WHEN 4:PROCwipebrick:IF ax%<0 ax%=-ax% ELSE ay%=-ay%
+ 1780  WHEN 9:ballx%-=INT(sx%/2):bally%-=INT(sy%/2):GOTO 1650
+ 1790  WHEN 5,6,7,8:
+ 1800    PROCwipebrick
+ 1810    IF ax%<0 AND (check%=5 OR check%=8) THEN ay%=-ay%:GOTO 2130
+ 1820    IF ax%>0 AND (check%=6 OR check%=7) THEN ay%=-ay%:GOTO 2130
+ 1830    IF ay%>0 AND (check%=5 OR check%=6) THEN ax%=-ax%:GOTO 2130
+ 1840    IF ay%<0 AND (check%=7 OR check%=8) THEN ax%=-ax%:GOTO 2130
+ 1850    IF check%=7 THEN
+ 1860      IF x%>=67 THEN 1880
+ 1870      IF area%(x%+6,y%)>0 THEN ay%=-ay%:GOTO 1910
+ 1880      IF y%<=7 THEN 1900
+ 1890      IF area%(x%,y%-3)>0 THEN ax%=-ax%:GOTO 1910
+ 1900      ay%=-ay%
+ 1910    ENDIF
+ 1920    IF check%=6 THEN
+ 1930      IF x%>=67 THEN 1950
+ 1940      IF area%(x%+6,y%)>0 THEN ay%=-ay%:GOTO 1980
+ 1950      IF y%>=52 THEN 1970
+ 1960      IF area%(x%,y%+3)>0 THEN ax%=-ax%:GOTO 1980
+ 1970      ay%=-ay%
+ 1980    ENDIF
+ 1990    IF check%=5 THEN
+ 2000      IF x%<=1 THEN 2020
+ 2010      IF area%(x%-6,y%)>0 THEN ay%=-ay%:GOTO 2050
+ 2020      IF y%>=52 THEN 2040
+ 2030      IF area%(x%,y%+3)>0 THEN ax%=-ax%:GOTO 2050
+ 2040      ay%=-ay%
+ 2050    ENDIF
+ 2060    IF check%=8 THEN
+ 2070      IF x%<=1 THEN 2090
+ 2080      IF area%(x%-6,y%)>0 THEN ay%=-ay%:GOTO 2120
+ 2090      IF y%<=7 THEN 2110
+ 2100      IF area%(x%,y%-3)>0 THEN ax%=-ax%:GOTO 2120
+ 2110      ay%=-ay%
+ 2120    ENDIF
+ 2130ENDCASE
+ 2140ENDPROC
+ 2150VDU 23,27,0,2|
+ 2160WAIT
+ 2170PLOT &ED,oballx%,obally%
+ 2180PLOT &ED,ballx%,bally%
+ 2190ENDPROC
+ 2200
+ 2210DEF PROCwipebrick
+ 2220VDU 23,27,0,2|
+ 2230x%=bx%-((bx%-1) MOD 6)
+ 2240y%=by%-((by%-1) MOD 3)
+ 2250IF col%=1 THEN grey%(x% DIV 6,y% DIV 3)-=1:IF grey%(x% DIV 6,y% DIV 3)>0 THEN col%=2
+ 2260IF col%=2 THEN 2300
+ 2270area%(x%,y%)=0:area%(x%+1,y%)=0:area%(x%+2,y%)=0:area%(x%+3,y%)=0:area%(x%+4,y%)=0:area%(x%+5,y%)=0
+ 2280area%(x%,y%+1)=0:area%(x%+1,y%+1)=0:area%(x%+2,y%+1)=0:area%(x%+3,y%+1)=0:area%(x%+4,y%+1)=0:area%(x%+5,y%+1)=0
+ 2290area%(x%,y%+2)=0:area%(x%+1,y%+2)=0:area%(x%+2,y%+2)=0:area%(x%+3,y%+2)=0:area%(x%+4,y%+2)=0:area%(x%+5,y%+2)=0
+ 2300GCOL 11,0
+ 2310WAIT
+ 2320PLOT &ED,oballx%,obally%
+ 2330IF col%=2 THEN 2480
+ 2340GCOL 3,col%
+ 2350MOVE ((x%-1)/6)*96,((y%-1)/3)*48+48:PRINT brick$
+ 2360bricks%-=1
+ 2370PROCscore(col%)
+ 2380IF capsule%=0 AND RND(scr%*5)>RND(scr%*10) THEN
+ 2390  capsule%=RND(5):cx%=RND(1084):cy%=50
+ 2400  IF cx%>batx%-280 AND cx%<batx%+292 THEN 2390
+ 2410  VDU 23,27,0,capsule%+2|
+ 2420  GCOL 11,0
+ 2430  PLOT &ED,cx%,cy%
+ 2440  T%=TIME+85:IF capsule%=5 THEN T%=TIME+45
+ 2450  VDU 23,27,0,2|
+ 2460ENDIF
+ 2470GCOL 11,0
+ 2480PLOT &ED,ballx%,bally%
+ 2490PROCstereo(1,ballx%):SOUND 1,-10,5,.5
+ 2500ENDPROC
+ 2510
+ 2520DEF PROCcheck_bat
+ 2530IF bally%>88 THEN ENDPROC
+ 2540IF catch% THEN
+ 2550  bx%=ballx%+(batx%-obatx%):IF bx%>=(batx%-12) AND bx%<=(batx%+96) AND bally%>52 THEN ax%=0:ay%=0:ballx%=bx%:bally%=88:ENDPROC
+ 2560ENDIF
+ 2570IF bally%<=0 THEN PROCdead:ENDPROC
+ 2580IF bally%>52 AND ballx%>(batx%-12) AND ballx%<=(batx%+96) THEN
+ 2590  PROCstereo(1,ballx%):SOUND 1,-10,1,1
+ 2600  IF ballx%<(batx%) THEN ax%=-4:ay%=1:ENDPROC
+ 2610  IF ballx%>(batx%+80) THEN ax%=4:ay%=1:ENDPROC
+ 2620  IF ballx%<(batx%+16) THEN ax%=-2:ay%=3:ENDPROC
+ 2630  IF ballx%>(batx%+64) THEN ax%=2:ay%=3:ENDPROC
+ 2640  IF ballx%<(batx%+32) THEN ax%=-1:ay%=4:ENDPROC
+ 2650  IF ballx%>(batx%+48) THEN ax%=1:ay%=4:ENDPROC
+ 2660  ay%=ABS(ay%)
+ 2670ENDIF
+ 2680ENDPROC
+ 2690
+ 2700DEF PROCbox(a%,b%)
+ 2710GCOL 5
+ 2720RECTANGLE FILL a%*32,912,(b%*32)-4,96
+ 2730GCOL 6
+ 2740RECTANGLE FILL (a%*32)+8,920,(b%*32)-20,80
+ 2750ENDPROC
+ 2760
+ 2770DEF PROCscore(num%)
+ 2780VDU 4:OFF
+ 2790sc%+=num%
+ 2800PRINT TAB(5,2);sc%
+ 2810IF sc%>hi% hi%=sc%:PRINT TAB(30,2);hi%
+ 2820speed+=num%/250
+ 2830VDU5
+ 2840ENDPROC
+ 2850
+ 2860DEF PROCcapsule
+ 2870VDU 23,27,0,capsule%+2|:PLOT &ED,cx%,cy%
+ 2880catch%=0
+ 2890CASE capsule% OF
+ 2900  WHEN 1:catch%=TRUE:TIME=-500
+ 2910  WHEN 2:speed=speed/1.5:IF speed<2 THEN speed=2
+ 2920  WHEN 3:speed=speed*1.5:IF speed>8 THEN speed=8
+ 2930  WHEN 4:lives%+=1:VDU4:OFF:PRINT TAB(23,2);lives%;" ":VDU5
+ 2940  WHEN 5:GCOL 3:RECTANGLE FILL 1152,0,150,100:breakout%=TRUE:GCOL 11,0:breaktime%=TIME+100
+ 2950ENDCASE
+ 2960capsule%=0
+ 2970VDU 7
+ 2980ENDPROC
+ 2990
+ 3000DEF PROCinitial_display
+ 3010VDU 26:GCOL 7
+ 3020RECTANGLE FILL 0,0,60,1024
+ 3030RECTANGLE FILL 1219,0,60,1024
+ 3040RECTANGLE FILL 0,864,1279,300
+ 3050ORIGIN 640,-256:GCOL 4
+ 3060FOR lp%=32 TO 4000 STEP 64
+ 3070LINE 0,0,lp%,1280
+ 3080LINE 0,0,-lp%,1280
+ 3090NEXT
+ 3100ORIGIN 0,0:GCOL 0
+ 3110RECTANGLE FILL 64,0,1148,864
+ 3120PROCbox(4,7):PROCbox(13,6)
+ 3130PROCbox(21,6):PROCbox(29,7)
+ 3140VDU4:OFF:COLOUR 134:COLOUR 3
+ 3150PRINT TAB(5,1)"Score"TAB(31,1)"Hi"
+ 3160VDU5:GCOL3
+ 3170MOVE 432,991:PRINT"Round"
+ 3180MOVE 688,991:PRINT"Lives"
+ 3190MOVE 1212,0:MOVE 1279,100:*SGet 8
+ 3200VDU 23,224,0,127,255,255,255,255,255,255
+ 3210VDU 23,225,0,255,255,255,255,255,255,255
+ 3220VDU 23,226,0,252,254,254,254,254,254,254
+ 3230VDU 23,227,255,255,255,127,0,0,0,0
+ 3240VDU 23,228,255,255,255,255,0,0,0,0
+ 3250VDU 23,229,254,254,254,252,0,0,0,0
+ 3260brick$=CHR$224+CHR$225+CHR$226+CHR$10+STRING$(3,CHR$8)+CHR$227+CHR$228+CHR$229
+ 3270ORIGIN 64,0
+ 3280ENDPROC
+ 3290
+ 3300DEF PROCgame_over
+ 3310PROCwipeobjs
+ 3320VOICE 1,"WaveSynth-Beep"
+ 3330GCOL 11,0:VDU 23,27,0,1|
+ 3340obaty%=48
+ 3350FOR lp=0 TO 1.1*PI STEP PI/45
+ 3360WAIT
+ 3370PLOT &ED,batx%,obaty%
+ 3380IF lp>PI/2 THEN VDU 23,27,0,9| ELSE VDU 23,27,0,1|
+ 3390obaty%=480*SIN(lp)+48
+ 3400PLOT &ED,batx%,obaty%
+ 3410PROCstereo(1,obaty%*2.3):SOUND &1001,-15,(obaty%/5)+30,3
+ 3420K=INKEY3:NEXT
+ 3430GCOL 4:MOVE 290,500:PRINT"G A M E   O V E R"
+ 3440GCOL 0:MOVE 292,504:PRINT"G A M E   O V E R"
+ 3450*Fx15,0
+ 3460VDU 28,2,31,37,5:COLOUR 128
+ 3470KK=FNscroll
+ 3480ENDPROC
+ 3490
+ 3500DEF PROCdead
+ 3510PROCwipeobjs
+ 3520FOR lp%=1 TO 6
+ 3530OSCLI("ChannelVoice 1 "+STR$(RND(4)+5))
+ 3540STEREO 1,0:SOUND &1001,-10,50,3
+ 3550K=INKEY6:NEXT
+ 3560ax%=0:ay%=0
+ 3570sx%=0:sy%=0
+ 3580ballx%=batx%+24:bally%=88
+ 3590GCOL 11,0:VDU 23,27,0,2|:PLOT &ED,ballx%,bally%
+ 3600oballx%=ballx%:obally%=bally%
+ 3610lives%-=1
+ 3620VDU4:OFF:PRINT TAB(23,2);lives%;" ":VDU 5
+ 3630VOICE 1,"Percussion-Medium"
+ 3640TIME=0
+ 3650catch%=TRUE
+ 3660ENDPROC
+ 3670
+ 3680DEF PROCwipeobjs
+ 3690GCOL 11,0
+ 3700VDU 23,27,0,2|:PLOT &ED,oballx%,obally%
+ 3710IF capsule% THEN VDU 23,27,0,capsule%+2|:PLOT &ED,cx%,cy%:capsule%=0
+ 3720IF breakout% THEN VDU 23,27,0,8|:GCOL 8,0:PLOT &ED,1148,0:breakout%=0
+ 3730ENDPROC
+ 3740
+ 3750DEF PROCtitles
+ 3760*Pointer 0
+ 3770GCOL 0:RECTANGLE FILL 0,0,1148,864
+ 3780VDU 28,2,31,37,5
+ 3790REPEAT
+ 3800demo%=0
+ 3810VDU5:FOR col%=7 TO 1 STEP -1
+ 3820GCOL col%:MOVE 268+col%*2,(col%*4)+700:PRINT"A R C H E N O I D"
+ 3830NEXT
+ 3840VDU 4:OFF:COLOUR 5:COLOUR 128:PRINT TAB(9,8)"by  Keith McAlpine"
+ 3850COLOUR 3:PRINTTAB(7,10)"(C)1988 A&B Computing"
+ 3860COLOUR 1:PRINTTAB(15,14)"Select"
+ 3870COLOUR RND(7):PRINTTAB(8,17)"1...  Play Game"
+ 3880COLOUR RND(7):PRINTTAB(8,18)"2...  Enter password"
+ 3890COLOUR RND(7):PRINTTAB(8,19)"3...  Screen designer"
+ 3900COLOUR RND(7):PRINTTAB(8,20)"4...  Get new screens"
+ 3910COLOUR RND(7):PRINTTAB(8,21)"5...  Quit"
+ 3920COLOUR 1:IF changed% PRINT TAB(2,25)"These screens haven't been saved"
+ 3930k=FNscroll:IF k THEN 4160
+ 3940K=RND(2):IF K=1 demo%=-1:GOTO 4160
+ 3950GCOL 8,0
+ 3960RESTORE 4530
+ 3970PRINT TAB(14,4)"Capsules"
+ 3980FOR lp%=3 TO 7:VDU 23,27,0,lp%|
+ 3990READ name$
+ 4000VDU5:GCOL RND(7):MOVE 400,(lp%*100)-125:PRINT name$
+ 4010GCOL RND(7):MOVE 402,(lp%*100)-129:PRINT name$
+ 4020PLOT &ED,230,(lp%*100)-150
+ 4030NEXT
+ 4040k=FNscroll:IF k THEN 4160
+ 4050VDU4:OFF:PRINT TAB(15,4)"Bricks":VDU5
+ 4060FOR lp%=1 TO 6
+ 4070GCOL lp%:MOVE 230,(lp%*100)+50:PRINT brick$
+ 4080GCOL RND(7):MOVE 400,(lp%*100)+35
+ 4090CASE lp% OF
+ 4100  WHEN 2:PRINT "Impenetrable brick"
+ 4110  WHEN 1:PRINT "Hard brick"
+ 4120  OTHERWISE PRINT"Worth ";lp%;" points"
+ 4130ENDCASE
+ 4140NEXT lp%
+ 4150k=FNscroll
+ 4160UNTIL k OR demo%
+ 4170ENDPROC
+ 4180
+ 4190DEF FNscroll
+ 4200key=INKEY700
+ 4210IF key>48 AND key<54 THEN =-1
+ 4220dir%=RND(4)-1
+ 4230lp%=0
+ 4240REPEAT
+ 4250WAIT
+ 4260VDU 23,7,0,dir%|
+ 4270key=INKEY0
+ 4280lp%+=1
+ 4290UNTIL lp%=40 OR (key>48 AND key<54)
+ 4300IF (key>48 AND key<54) THEN =-1
+ 4310=0
+ 4320
+ 4330DEF PROCcreate
+ 4340PRINT''"Please wait. Creating screens file."
+ 4350FOR lp%=0 TO 10000 STEP 4
+ 4360screen%!lp%=0:NEXT
+ 4370FOR lp%=1 TO 50
+ 4380PROCpswrite(lp%,STR$lp%)
+ 4390NEXT
+ 4400OSCLI("Save "+screen_file$+" "+STR$~screen%+"+2905")
+ 4410ENDPROC
+ 4420
+ 4430DEF PROCpswrite(P%,A$)
+ 4440$(P%*10-10+password%)=LEFT$(A$,9)
+ 4450ENDPROC
+ 4460
+ 4470DEF FNps(P%)=$(P%*10-10+password%)
+ 4480
+ 4490REM Colour Data
+ 4500DATA 0,0,0,11,11,11,10,5,0,15,4,0,13,15,0,0,7,15,0,15,8,15,7,15
+ 4510DATA 10,0,12,10,13,0,0,2,15,15,0,0,15,6,0,12,12,0,11,11,11
+ 4520REM Capsule Names
+ 4530DATA Catch ball,Slow ball,Fast ball,Extra bat,Break out
+ 4540
+ 4550MODE 12:MOUSE STEP 1,1:VOICE 1,"WaveSynth-Beep"
+ 4560STEREO 1,0
+ 4570*Exit
+ 4580END
+ 4590
+ 4600REM Screen Designer
+ 4610IF isc% THEN PROCcant:PROCinitial_display:GOTO150
+ 4620VDU 26,4:COLOUR 128:CLS:OFF
+ 4630COLOUR 15,64,16,64
+ 4640VDU 23,230,255,128,128,128,128,128,128,128
+ 4650VDU 23,231,255|
+ 4660VDU 23,232,255,1,1,1,1,1,1,1
+ 4670VDU 23,233,128,128,128,255,0,0,0,0
+ 4680VDU 23,234,0,0,0,255,0,0,0,0
+ 4690VDU 23,235,1,1,1,255,0,0,0,0
+ 4700VDU 23,236,24,40,78,128,78,40,24,0
+ 4710VDU 23,237,48,40,228,2,228,40,48,0
+ 4720brick2$=CHR$230+CHR$231+CHR$232+CHR$10+STRING$(3,CHR$8)+CHR$233+CHR$234+CHR$235
+ 4730PROCscreeninit
+ 4740finished=FALSE
+ 4750REPEAT
+ 4760  REPEAT
+ 4770    MOUSE x%,y%,button%
+ 4780  UNTIL button%>0
+ 4790  IF y%>308 THEN PROCprint_brick
+ 4800  IF y%<167 AND y%>119 THEN PROCcolour
+ 4810  ty%=(1023-y%)DIV32
+ 4820  IF ty%=30 OR ty%=24 THEN
+ 4830    tx%=x% DIV 32
+ 4840    IF ty%=24 THEN
+ 4850    IF tx%>=2 AND tx%<=9 THEN PROCpasswordchange(scr%)
+ 4860    ELSE
+ 4870    IF tx%>=2 AND tx%<7 THEN PROCclear
+ 4880    IF tx%>=9 AND tx%<12 THEN
+ 4890      check=FNcheck:IF NOT check THEN 4910
+ 4900      PROCstore_screen:PROCinitial_display:finished=TRUE
+ 4910    ENDIF
+ 4920    IF tx%>=14 AND tx%<22 THEN PROCback
+ 4930    IF tx%>=24 AND tx%<32 THEN PROCfor
+ 4940    IF tx%>=34 AND tx%<38 THEN PROCsave
+ 4950    ENDIF
+ 4960  ENDIF
+ 4970UNTIL finished
+ 4980GOTO 150
+ 4990
+ 5000DEF PROCscreeninit
+ 5010VOICE 1,"WaveSynth-Beep"
+ 5020MOUSE RECTANGLE 0,0,1280,1024
+ 5030MOUSE STEP 1,1
+ 5040MOUSE ON
+ 5050*Pointer
+ 5060VDU 5:GCOL 1
+ 5070FOR lpy%=1023 TO 351 STEP -48
+ 5080FOR lpx%=64 TO 1120 STEP 96
+ 5090MOVE lpx%,lpy%:PRINT brick2$
+ 5100NEXT,
+ 5110GCOL 15:RECTANGLE FILL 0,0,1280,303
+ 5120lpx%=88
+ 5130FOR col%=0 TO 7:GCOL col%
+ 5140MOVE lpx%,167:PRINT brick$
+ 5150lpx%+=144:NEXT:VDU4:OFF
+ 5160COLOUR 3:PRINT TAB(2,30)"Clear"TAB(9,30)"Out"TAB(14,30)"Screen ";CHR$236
+ 5170PRINT TAB(24,30)"Screen ";CHR$237TAB(34,30)"Save"
+ 5180PRINTTAB(14,24)" Screen   "TAB(2,24)"Password"
+ 5190col%=4:scr%=1:COLOUR2
+ 5200PRINTTAB(22,24);scr%" "
+ 5210PROCprint_screen
+ 5220ENDPROC
+ 5230
+ 5240DEF PROCprint_brick
+ 5250IF x%<68 OR x%>1214 THEN ENDPROC
+ 5260GCOL col%
+ 5270X%=x%-((x%-64) MOD 96)+4
+ 5280Y%=y%-((y%-20) MOD 48)
+ 5290RECTANGLE FILL X%,Y%,86,36
+ 5300changed%=TRUE
+ 5310ENDPROC
+ 5320
+ 5330DEF PROCcolour
+ 5340P%=POINT(x%,y%)
+ 5350IF P%=15 THEN ENDPROC
+ 5360col%=P%:STEREO 1,(P%-3)*37.3333333:SOUND 1,-12,(P%*10)+60,1
+ 5370ENDPROC
+ 5380
+ 5390DEF PROCsave
+ 5400IF isc% THEN PROCcant:ENDPROC
+ 5410check=FNcheck:IF NOT check THEN ENDPROC
+ 5420PROCstore_screen
+ 5430OSCLI("Save "+screen_file$+" "+STR$~screen%+"+2905")
+ 5440changed%=FALSE
+ 5450ENDPROC
+ 5460
+ 5470DEF PROCstore_screen
+ 5480count%=0
+ 5490addr%=(scr%-1)*200
+ 5500FOR lpy%=335 TO 1007 STEP 48
+ 5510FOR lpx%=72 TO 1128 STEP 96
+ 5520screen%?addr%=POINT(lpx%,lpy%)
+ 5530IF POINT(lpx%,lpy%)<>2 AND POINT(lpx%,lpy%)<>0 THEN count%+=1
+ 5540addr%+=1:NEXT,
+ 5550screen%?addr%=count%
+ 5560ENDPROC
+ 5570
+ 5580DEF PROCprint_screen
+ 5590addr%=(scr%-1)*200
+ 5600FOR lpy%=303 TO 1023 STEP 48
+ 5610FOR lpx%=64 TO 1120 STEP 96
+ 5620col%=screen%?addr%
+ 5630GCOL col%
+ 5640RECTANGLE FILL lpx%+4,lpy%+8,86,36
+ 5650addr%+=1:NEXT,
+ 5660ENDPROC
+ 5670
+ 5680DEF PROCfor
+ 5690PROCstore_screen
+ 5700scr%+=1:IF scr%>50 scr%=1
+ 5710COLOUR 2:PRINT TAB(22,24);scr%;" "
+ 5720PROCprint_screen
+ 5730ENDPROC
+ 5740
+ 5750DEF PROCback
+ 5760PROCstore_screen
+ 5770scr%-=1:IF scr%<1 THEN scr%=50
+ 5780COLOUR 2:PRINTTAB(22,24);scr%;" "
+ 5790PROCprint_screen
+ 5800ENDPROC
+ 5810
+ 5820DEF PROCclear
+ 5830check=FNcheck:IF NOT check THEN VDU7:ENDPROC
+ 5840FOR lp%=((scr%-1)*200) TO (scr%*200)-1
+ 5850screen%?lp%=0
+ 5860NEXT
+ 5870PROCprint_screen
+ 5880ENDPROC
+ 5890
+ 5900DEF PROCcant:LOCAL X,Y,Z,A
+ 5910REPEAT MOUSE X,Y,Z:UNTIL Z=0
+ 5920*FX15,1
+ 5930MOVE 400,335:MOVE 900,500:*SGet temp
+ 5940VDU4:OFF:GCOL15:RECTANGLE FILL 400,335,500,165
+ 5950COLOUR 134:COLOUR 3
+ 5960PRINTTAB(14,17)"Screens are"
+ 5970PRINTTAB(14,18)"unchangable"
+ 5980PRINTTAB(14,20)"Press a key"
+ 5990REPEAT MOUSE X,Y,Z:A=INKEY0:UNTIL A<>-1 OR Z<>0
+ 6000*SChoose temp
+ 6010GCOL 8,0:PLOT &ED,400,335:COLOUR 128
+ 6020*SDelete temp
+ 6030ENDPROC
+ 6040
+ 6050DEFFNcheck
+ 6060MOVE 400,335:MOVE 900,500:*SGet temp
+ 6070VDU4:OFF:GCOL15:RECTANGLE FILL 400,335,500,165
+ 6080COLOUR 143:COLOUR 3
+ 6090PRINTTAB(14,17)"Are you sure?"
+ 6100COLOUR4:PRINTTAB(14,20)"Yes        No"
+ 6110MOUSE RECTANGLE 400,335,500,165
+ 6120REPEATREPEAT
+ 6130MOUSE x%,y%,button%:UNTIL button%<>0
+ 6140x%=x% DIV 32:y%=(1023-y%)DIV32
+ 6150UNTIL (y%=20 AND x%>=14 AND x%<=16) OR (y%=20 AND x%>=25 AND x%<=26)
+ 6160*SChoose temp
+ 6170GCOL 8,0:PLOT &ED,400,335:COLOUR 128
+ 6180*SDelete temp
+ 6190MOUSE RECTANGLE 0,0,1280,1024
+ 6200IF (y%=20 AND x%>=14 AND x%<=16) THEN =-1
+ 6210=0
+ 6220
+ 6230DEF PROCgrafcen(A$,Y%)
+ 6240MOVE 608-LENA$*16,Y%:PRINTA$
+ 6250ENDPROC
+ 6260
+ 6270DEF PROCstereo(chan%,X%):LOCAL stereo%
+ 6280stereo%=(X%-640) DIV 5:IF stereo%<-127 stereo%=-127 ELSE IF stereo%>127 stereo%=127
+ 6290STEREO chan%,stereo%:ENDPROC
+ 6300REM Load screens
+ 6310LOCAL ERROR
+ 6320ON ERROR IF ERR=17 THEN GOTO 6380 ELSE PRINT"Error: ";REPORT$,ERL:GOTO 6340
+ 6330MODE 12:PRINT"Archenoid Screen Loader/Creater; by Julian Rockey."
+ 6340INPUT"Enter name of new screens: "QQ$:IF path$<>"" THEN QQ2$=path$+"."+QQ$ ELSE QQ2$=QQ$
+ 6350F%=OPENINQQ2$:IF F%<>0 THEN CLOSE #F% ELSE PRINT"Create screens "+QQ$+" ?";:REPEAT G%=GET AND &DF:UNTIL G%=78 OR G%=89:IF G%=78 PRINT"No":GOTO6340 ELSE PRINT"Yes":H=INKEY100
+ 6360screen_file$=QQ2$
+ 6370RESTORE ERROR
+ 6380PROCzzz:GOTO 120
+ 6390DEF PROCzzz:RESTORE:GOTO 1120
+ 6400
+ 6410REM The following procedure sets up the Exit command, if it has
+ 6420REM not already been set, to execute a *Quit.
+ 6430REM It also checks for other variables (such as Sound) and sets them
+ 6440REM as appropriate if they have not already been set.
+ 6450
+ 6460DEF PROCtest_exit
+ 6470IF NOT FNvar_exists("Alias$Exit") THEN *Set Alias$Exit Quit
+ 6480IF NOT FNvar_exists("Sound") THEN *Set Sound On
+ 6490ENDPROC
+ 6500DEF FNvar_exists(varname$)
+ 6510LOCAL A$,exists%
+ 6520SYS "XOS_ReadVarVal",varname$,A$,-1,0,0 TO ,,exists%
+ 6530=exists%<0
+ 6540
+ 6550DEF FNcaps(A$):LOCAL Z%,I%,B$:B$=""
+ 6560FOR I%=1 TO LENA$:Z%=ASCMID$(A$,I%,1):IF Z%>96 AND Z%<123 Z%=Z%AND&DF
+ 6570B$=B$+CHR$Z%:NEXT:=B$
+ 6580REM Enter password
+ 6590COLOUR 7:ON:INPUTTAB(4,23)"Password: "ps$:OFF
+ 6600ps$=LEFT$(FNcaps(ps$),9)
+ 6610I%=0:REPEAT:I%+=1
+ 6620UNTIL I%=50 OR FNps(I%)=ps$
+ 6630IF FNps(I%)=ps$ THEN scr%=I%:GOTO 270
+ 6640PROCinitial_display:GOTO 150
+ 6650
+ 6660DEF PROCpasswordchange(S%)
+ 6670IF isc% THEN
+ 6680  PROCcant
+ 6690ELSE
+ 6700  COLOUR 7:ON:INPUT TAB(5,25)"Password: "ps$:OFF
+ 6710  PROCpswrite(S%,FNcaps(ps$))
+ 6720  COLOUR 128+15:PRINTTAB(0,25)SPC40;:COLOUR128
+ 6730ENDIF
+ 6740ENDPROC
